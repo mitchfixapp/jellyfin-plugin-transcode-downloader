@@ -17,54 +17,25 @@
   <!-- centered rounded tile (the actual icon; matches the Auto Collections layout) -->
   <rect x="530" y="100" width="860" height="880" rx="90" fill="url(#tile)"/>
 
-  <!-- Jellyfin mark, top-left inside the tile -->
-  <g transform="translate(575,182) scale(0.62)" fill="url(#jf)">
+  <!-- icon row: Jellyfin (source) -> gear (transcode) -> download (result) -->
+
+  <!-- Jellyfin mark, left -->
+  <g transform="translate(567,245) scale(0.58)" fill="url(#jf)">
     <path d="M256,201.6c-20.4,0-86.2,119.3-76.2,139.4s142.5,19.9,152.4,0S276.5,201.6,256,201.6z"/>
     <path d="M256,23.3c-61.6,0-259.8,359.4-229.6,420.1s429.3,60,459.2,0S317.6,23.3,256,23.3z M406.5,390.8c-19.6,39.3-281.1,39.8-300.9,0s110.1-275.3,150.4-275.3S426.1,351.4,406.5,390.8z"/>
   </g>
 
-  <!-- download icon (Material file_download, as used in the Jellyfin UI), top-right inside the tile -->
-  <g transform="translate(1047,186) scale(12)" fill="#ffffff">
+  <!-- gear (Material settings), center -->
+  <g transform="translate(810,230) scale(12.5)" fill="#ffffff" fill-rule="evenodd">
+    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+  </g>
+
+  <!-- download icon (Material file_download, as used in the Jellyfin UI), right -->
+  <g transform="translate(1055,236) scale(12.5)" fill="#ffffff">
     <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
   </g>
 
-  <!-- media cluster (three boxes with film / clapperboard / tv), centered -->
-  <g transform="translate(141,118) scale(1.28)">
-    <g fill="none" stroke="#ffffff" stroke-width="7" stroke-linejoin="round">
-      <rect x="376" y="282" width="150" height="150" rx="20"/>
-      <rect x="565" y="282" width="150" height="150" rx="20"/>
-      <rect x="754" y="282" width="150" height="150" rx="20"/>
-    </g>
-
-    <!-- film strip (box 1, center 451,357) -->
-    <g transform="translate(451,357)">
-      <rect x="-28" y="-37" width="56" height="74" rx="5" fill="none" stroke="#ffffff" stroke-width="7"/>
-      <g fill="#ffffff">
-        <rect x="-24" y="-31" width="11" height="9" rx="2"/><rect x="-24" y="-15" width="11" height="9" rx="2"/><rect x="-24" y="1" width="11" height="9" rx="2"/><rect x="-24" y="17" width="11" height="9" rx="2"/>
-        <rect x="13" y="-31" width="11" height="9" rx="2"/><rect x="13" y="-15" width="11" height="9" rx="2"/><rect x="13" y="1" width="11" height="9" rx="2"/><rect x="13" y="17" width="11" height="9" rx="2"/>
-      </g>
-    </g>
-
-    <!-- clapperboard (box 2, center 640,357) -->
-    <g transform="translate(640,357)" fill="#ffffff">
-      <rect x="-34" y="-4" width="68" height="44" rx="5"/>
-      <path d="M-36 -26 L34 -36 L39 -16 L-31 -6 Z"/>
-      <g fill="#2f2455">
-        <path d="M-22 -25 L-10 -27 L-17 -13 L-29 -11 Z"/>
-        <path d="M2 -28 L14 -30 L7 -16 L-5 -14 Z"/>
-        <path d="M26 -32 L36 -33 L31 -19 L21 -17 Z"/>
-      </g>
-    </g>
-
-    <!-- tv (box 3, center 829,357) -->
-    <g transform="translate(829,357)" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M-20 -40 L2 -22 L24 -40"/>
-      <rect x="-34" y="-22" width="74" height="50" rx="8"/>
-      <line x1="24" y1="-10" x2="24" y2="16"/>
-    </g>
-  </g>
-
   <!-- plugin name -->
-  <text x="960" y="788" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="92" fill="#ffffff">TRANSCODE</text>
-  <text x="960" y="892" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="92" fill="#ffffff">DOWNLOADER</text>
+  <text x="960" y="712" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="92" fill="#ffffff">TRANSCODE</text>
+  <text x="960" y="826" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="92" fill="#ffffff">DOWNLOADER</text>
 </svg>
