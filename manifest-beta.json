@@ -1,12 +1,21 @@
 [
-    {
-        "guid":  "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
-        "name":  "Transcode Downloader (Beta)",
-        "description":  "Beta channel for Transcode Downloader. Pre-release builds for testing before they ship to the stable repository.",
-        "overview":  "Pre-release channel — quality picker for downloads, powered by the built-in Jellyfin transcoder.",
-        "owner":  "MitchFix.App",
-        "category":  "General",
-        "imageUrl":  "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
-        "versions":  []
-    }
+  {
+    "guid": "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
+    "name": "Transcode Downloader (Beta)",
+    "description": "Beta channel for Transcode Downloader. Pre-release builds for testing before they ship to the stable repository.",
+    "overview": "Pre-release channel — quality picker for downloads, powered by the built-in Jellyfin transcoder.",
+    "owner": "MitchFix.App",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
+    "versions": [
+      {
+        "version": "1.1.0.1",
+        "changelog": "- \"Download all\": the bulk button now unlocks only once **every** episode has transcoded\n  successfully. If an episode fails, a **retry** button appears next to it to re-run just that\n  one, and the bulk button stays locked until it succeeds.\n- \"Download all\": per-episode quality fallback — when you pick a quality that is higher than an\n  episode's source, that episode now downloads at the best quality its source allows instead of\n  being skipped, so a mixed-resolution season still completes.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.1/transcode-downloader_1.1.0.1.zip",
+        "checksum": "9c15259b3ad48ece56cf4d7ac842d334",
+        "timestamp": "2026-06-07T22:18:21.0000000Z"
+      }
+    ]
+  }
 ]
