@@ -4,6 +4,9 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.0.2 - 2026-06-07
+- Set the commercial-license contact email (info@mitchfix.app) in COMMERCIAL.md.
+
 ## v1.0.1 - 2026-06-07
 - Add a catalog icon: a dark tile with the Jellyfin logo, the Material `file_download`
   icon, media icons (film / clapperboard / tv), and the plugin name. Source and PNG

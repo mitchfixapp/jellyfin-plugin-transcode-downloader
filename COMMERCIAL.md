@@ -33,8 +33,8 @@ then you need a **separate commercial license** from the author.
 Contact the author:
 
 - **Mitchell Doedens**
-- Open an issue: <https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/issues>
-- Email: _add your preferred contact address here_
+- Email: <info@mitchfix.app>
+- Or open an issue: <https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/issues>
 
 ---
 
