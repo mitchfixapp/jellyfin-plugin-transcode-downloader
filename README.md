@@ -33,17 +33,36 @@ ready-to-play **MP4**.
 - 📦 **Original** option = Jellyfin's normal direct download (no transcode).
 - 🎬 Server-side transcode to a **faststart MP4** (seekable, correct duration, proper
   filenames including `Show SxxExx Title`).
+- 📚 **Download all** — grab a whole **season or series** in one go, with a per-episode
+  progress list and a download link for each finished episode.
+- 💬 **Subtitles included** — text subtitle tracks (embedded and external `.srt`) are muxed
+  into the download as selectable soft tracks, so you can pick them in your local player.
 - 🚫 **No upscaling** — qualities above the source resolution are hidden automatically.
 - ⏳ **Progress bar + cancel** (cancelling stops ffmpeg immediately and frees the slot).
+- ♻️ **Auto-retry** on a transient server transcode hiccup, so big batches don't lose an episode.
 - ⚙️ **Configurable** presets, bitrates, codec, concurrency, retention — from the dashboard.
 - 🔑 **No API key needed** — the plugin runs inside Jellyfin and uses your session.
 
 ## How to use
 
+**A single movie or episode**
+
 1. Open a **movie** or **episode**.
 2. Click **Download**.
 3. Choose **Original**, or a transcode quality (480p / 720p / 1080p / 4K).
 4. A progress bar runs — you can cancel — and the file downloads when it's ready.
+
+**A whole season or series**
+
+1. Open a **series** or **season** and click the **⋯** menu → **Download all**.
+2. Pick one quality for the whole set.
+3. Each episode is queued and transcoded (respecting your concurrency limit); a **download**
+   link appears next to each one as it finishes. In a browser, **Download finished** grabs
+   every completed episode at once.
+
+> On the official mobile apps the download opens in the device browser/download manager.
+> That is the only way the apps can fetch a custom (transcoded) file — their built-in download
+> always re-fetches the *original* by item id.
 
 ## Requirements
 

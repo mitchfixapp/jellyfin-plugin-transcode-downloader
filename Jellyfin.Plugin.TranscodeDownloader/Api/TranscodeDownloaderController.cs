@@ -55,8 +55,14 @@ public class TranscodeDownloaderController : ControllerBase
         return Ok(new
         {
             downloadable = true,
-            showOriginal = opts.Value.ShowOriginal,
-            presets = opts.Value.Presets.Select(p => new { label = p.Label, height = p.MaxHeight })
+            kind = opts.Kind,
+            showOriginal = opts.ShowOriginal,
+            presets = opts.Presets.Select(p => new { label = p.Label, height = p.MaxHeight }),
+            children = opts.Children.Select(c => new
+            {
+                id = c.Id.ToString("N", CultureInfo.InvariantCulture),
+                name = c.Name
+            })
         });
     }
 

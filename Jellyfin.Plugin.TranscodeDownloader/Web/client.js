@@ -61,14 +61,15 @@
     }
   }
 
-  function hijack(el, isSheetItem) {
+  function hijack(el, isSheetItem, isAll) {
     if (!el || el.dataset.tdHijacked) { return; }
     el.dataset.tdHijacked = "1";
     el.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      if (isSheetItem) { closeSheet(el); setTimeout(openDialog, 90); } else { openDialog(); }
+      var open = isAll ? openAllDialog : openDialog;
+      if (isSheetItem) { closeSheet(el); setTimeout(open, 90); } else { open(); }
     }, true);
   }
 
@@ -77,12 +78,15 @@
     if (!itemId) { return; }
     getOptions(itemId).then(function (o) {
       if (!o || !o.downloadable) { return; }
+      var isAll = o.kind === "folder";
       var bars = document.querySelectorAll(".btnDownload");
       for (var i = 0; i < bars.length; i++) {
-        if (bars[i].offsetParent !== null) { hijack(bars[i], false); }
+        if (bars[i].offsetParent !== null) { hijack(bars[i], false, isAll); }
       }
-      var sheetItem = document.querySelector('.actionSheetMenuItem[data-id="download"]');
-      if (sheetItem) { hijack(sheetItem, true); }
+      var single = document.querySelector('.actionSheetMenuItem[data-id="download"]');
+      if (single) { hijack(single, true, false); }
+      var all = document.querySelector('.actionSheetMenuItem[data-id="downloadall"]');
+      if (all) { hijack(all, true, true); }
     });
   }
 
@@ -257,6 +261,140 @@
     close.style.cssText = "width:100%;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;";
     close.addEventListener("click", function () { var ov = c.parentNode; if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
     c.appendChild(close);
+  }
+
+  // ---- download all (series / season) --------------------------------------
+  function openAllDialog() {
+    var itemId = currentItemId();
+    var tok = token();
+    if (!itemId || !tok) { alert("Could not determine the item or session. Open a series or season first."); return; }
+    getOptions(itemId).then(function (o) {
+      if (!o || !o.downloadable || o.kind !== "folder" || !o.children || !o.children.length) {
+        alert("No downloadable episodes were found here.");
+        return;
+      }
+      var ov = overlay();
+      var c = card();
+      c.innerHTML =
+        '<div style="font-size:1.1em;font-weight:600;margin-bottom:.2em;">Download all</div>' +
+        '<div style="opacity:.6;font-size:.85em;margin-bottom:1em;">' + o.children.length + ' episodes. Pick a quality for the whole set.</div>';
+
+      (o.presets || []).forEach(function (p) {
+        var b = optionButton(p.label, o.children.length + " episodes, transcoded");
+        b.addEventListener("click", function () { startAllJobs(o.children, p.height, ov, c); });
+        c.appendChild(b);
+      });
+
+      var cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = "Cancel";
+      cancel.style.cssText = "width:100%;margin-top:.3em;background:transparent;color:#9aa;border:0;padding:.6em;cursor:pointer;";
+      cancel.addEventListener("click", function () { document.body.removeChild(ov); });
+      c.appendChild(cancel);
+      ov.appendChild(c);
+      document.body.appendChild(ov);
+    });
+  }
+
+  function startAllJobs(children, height, ov, c) {
+    c.innerHTML =
+      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;">Transcoding ' + children.length + ' episodes…</div>' +
+      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">Queued on the server; a download link appears as each one finishes.</div>';
+
+    var list = document.createElement("div");
+    list.style.cssText = "max-height:48vh;overflow:auto;margin-bottom:.6em;";
+    c.appendChild(list);
+
+    var finished = [];
+    var tracked = [];
+    var batch = { stopped: false };
+    children.forEach(function (ch) {
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:.6em;padding:.45em 0;border-top:1px solid rgba(255,255,255,.07);font-size:.82em;";
+      var name = document.createElement("span");
+      name.textContent = ch.name;
+      name.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+      var state = document.createElement("span");
+      state.textContent = "queued";
+      state.style.cssText = "flex:none;opacity:.6;min-width:5.5em;text-align:right;";
+      row.appendChild(name);
+      row.appendChild(state);
+      list.appendChild(row);
+      var rec = { jobId: null, timer: null, finished: false };
+      tracked.push(rec);
+      runEpisodeJob(ch.id, height, row, state, finished, rec, batch);
+    });
+
+    // Stop polling and cancel anything still running/queued, so closing the dialog frees the server.
+    function stopAll() {
+      batch.stopped = true;
+      tracked.forEach(function (r) {
+        if (r.timer) { clearInterval(r.timer); r.timer = null; }
+        if (r.jobId && !r.finished) { fetch(svc("/Jobs/" + r.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); }
+      });
+    }
+
+    var footer = document.createElement("div");
+    footer.style.cssText = "display:flex;gap:.5em;";
+    if (!isNativeApp()) {
+      var all = document.createElement("button");
+      all.type = "button";
+      all.textContent = "Download finished";
+      all.style.cssText = "flex:1;background:" + ACCENT + ";color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;font-weight:600;";
+      all.addEventListener("click", function () {
+        finished.forEach(function (d, i) { setTimeout(function () { triggerDownload(d.url, d.filename); }, i * 800); });
+      });
+      footer.appendChild(all);
+    }
+
+    var close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "Close";
+    close.style.cssText = "flex:none;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
+    close.addEventListener("click", function () { stopAll(); if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
+    footer.appendChild(close);
+    c.appendChild(footer);
+  }
+
+  function runEpisodeJob(itemId, height, row, state, finished, rec, batch) {
+    fetch(svc("/Jobs"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId: itemId, height: height })
+    })
+      .then(function (r) { if (!r.ok) { return r.text().then(function (t) { throw new Error(t || r.status); }); } return r.json(); })
+      .then(function (j) {
+        rec.jobId = j.jobId;
+        if (batch.stopped) { rec.finished = true; fetch(svc("/Jobs/" + j.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); return; }
+        pollEpisode(j.jobId, j.filename, row, state, finished, rec);
+      })
+      .catch(function (err) { rec.finished = true; state.textContent = "failed"; state.title = err.message; state.style.color = "#ff6b6b"; });
+  }
+
+  function pollEpisode(jobId, filename, row, state, finished, rec) {
+    var url = svc("/Jobs/" + jobId + "/File");
+    rec.timer = setInterval(function () {
+      fetch(svc("/Jobs/" + jobId))
+        .then(function (r) { return r.json(); })
+        .then(function (s) {
+          if (s.state === "queued") { state.textContent = "queued"; }
+          else if (s.state === "running") { state.textContent = (s.progress || 0) + "%"; }
+          else if (s.state === "done") {
+            clearInterval(rec.timer); rec.timer = null; rec.finished = true;
+            finished.push({ url: url, filename: filename });
+            var dl = document.createElement("a");
+            dl.href = url;
+            dl.setAttribute("download", filename || "");
+            dl.textContent = "download";
+            dl.style.cssText = "flex:none;color:" + ACCENT + ";text-decoration:none;font-weight:600;min-width:5.5em;text-align:right;";
+            dl.addEventListener("click", function (e) { e.preventDefault(); triggerDownload(url, filename); });
+            row.replaceChild(dl, state);
+          }
+          else if (s.state === "error") { clearInterval(rec.timer); rec.timer = null; rec.finished = true; state.textContent = "error"; state.title = s.error || ""; state.style.color = "#ff6b6b"; }
+          else if (s.state === "cancelled") { clearInterval(rec.timer); rec.timer = null; rec.finished = true; state.textContent = "cancelled"; }
+        })
+        .catch(function () { /* keep polling */ });
+    }, 2000);
   }
 
   console.log("[TranscodeDownloader] client loaded");

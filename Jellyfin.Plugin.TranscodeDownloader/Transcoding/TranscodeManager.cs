@@ -83,17 +83,56 @@ public sealed class TranscodeManager : IDisposable
             ? Path.Combine(_appPaths.CachePath, "transcode-downloader")
             : Config.WorkPath;
 
-    /// <summary>Gets the available quality presets for an item, filtered to the source resolution.</summary>
+    /// <summary>
+    /// Gets the download options for an item. For a movie/episode this is a single video with its
+    /// quality presets; for a series/season it is the list of downloadable episodes ("download all").
+    /// </summary>
     /// <param name="itemId">The item id.</param>
-    /// <returns>The offered presets plus whether "Original" is enabled, or null if the item is not downloadable.</returns>
-    public (IReadOnlyList<QualityPreset> Presets, bool ShowOriginal)? GetOptions(Guid itemId)
+    /// <returns>The download options, or null if the item is not downloadable.</returns>
+    public DownloadOptions? GetOptions(Guid itemId)
     {
-        if (_libraryManager.GetItemById(itemId) is not Video item)
+        var item = _libraryManager.GetItemById(itemId);
+        if (item is Video video)
         {
-            return null;
+            return new DownloadOptions
+            {
+                Kind = "video",
+                ShowOriginal = Config.ShowOriginal,
+                Presets = FilterPresets(GetSourceWidth(video))
+            };
         }
 
-        var srcWidth = GetSourceWidth(item);
+        if (item is Folder folder)
+        {
+            var episodes = folder.GetRecursiveChildren(i => i is Video)
+                .OfType<Video>()
+                .OrderBy(e => (e as Episode)?.ParentIndexNumber ?? int.MaxValue)
+                .ThenBy(e => (e as Episode)?.IndexNumber ?? int.MaxValue)
+                .ThenBy(e => e.SortName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (episodes.Count == 0)
+            {
+                return null;
+            }
+
+            var maxWidth = episodes.Select(GetSourceWidth).DefaultIfEmpty(0).Max();
+            var children = episodes
+                .Select(e => new DownloadChild { Id = e.Id, Name = BuildChildName(e) })
+                .ToList();
+            return new DownloadOptions
+            {
+                Kind = "folder",
+                ShowOriginal = Config.ShowOriginal,
+                Presets = FilterPresets(maxWidth),
+                Children = children
+            };
+        }
+
+        return null;
+    }
+
+    private static List<QualityPreset> FilterPresets(int srcWidth)
+    {
         var presets = EffectiveQualities
             .Where(q => srcWidth <= 0 || srcWidth >= (int)(q.MinSourceWidth * 0.9))
             .OrderBy(q => q.MaxHeight)
@@ -103,7 +142,20 @@ public sealed class TranscodeManager : IDisposable
             presets.Add(EffectiveQualities.OrderBy(q => q.MaxHeight).First());
         }
 
-        return (presets, Config.ShowOriginal);
+        return presets;
+    }
+
+    private static string BuildChildName(Video v)
+    {
+        if (v is Episode ep)
+        {
+            var code = ep.ParentIndexNumber.HasValue && ep.IndexNumber.HasValue
+                ? string.Format(CultureInfo.InvariantCulture, "S{0:D2}E{1:D2}", ep.ParentIndexNumber.Value, ep.IndexNumber.Value)
+                : string.Empty;
+            return string.Join(" ", new[] { code, ep.Name }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        }
+
+        return v.Name ?? "video";
     }
 
     /// <summary>Creates and queues a transcode job.</summary>
@@ -271,62 +323,84 @@ public sealed class TranscodeManager : IDisposable
 
             job.State = JobState.Running;
             var url = BuildStreamUrl(job.ItemId, preset, token, job.Id);
-            var stderr = new StringBuilder();
 
-            var psi = new ProcessStartInfo
+            // Jellyfin's internal transcode stream occasionally returns a transient 5XX when several
+            // transcodes start at once (e.g. "Download all"); retry once before giving up.
+            const int maxAttempts = 2;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                FileName = _mediaEncoder.EncoderPath,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            foreach (var arg in BuildFfmpegArgs(job, url))
-            {
-                psi.ArgumentList.Add(arg);
-            }
-
-            using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data is not null)
+                var stderr = new StringBuilder();
+                var psi = new ProcessStartInfo
                 {
-                    ParseProgress(job, e.Data);
-                }
-            };
-            process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data is not null && stderr.Length < 4000)
+                    FileName = _mediaEncoder.EncoderPath,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                foreach (var arg in BuildFfmpegArgs(job, url))
                 {
-                    stderr.AppendLine(e.Data);
+                    psi.ArgumentList.Add(arg);
                 }
-            };
 
-            job.Process = process;
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            await process.WaitForExitAsync().ConfigureAwait(false);
+                using (var process = new Process { StartInfo = psi, EnableRaisingEvents = true })
+                {
+                    process.OutputDataReceived += (_, e) =>
+                    {
+                        if (e.Data is not null)
+                        {
+                            ParseProgress(job, e.Data);
+                        }
+                    };
+                    process.ErrorDataReceived += (_, e) =>
+                    {
+                        if (e.Data is not null && stderr.Length < 4000)
+                        {
+                            stderr.AppendLine(e.Data);
+                        }
+                    };
 
-            if (job.State == JobState.Cancelled)
-            {
-                TryDelete(job.OutputPath);
-                return;
-            }
+                    job.Process = process;
+                    process.Start();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+                    await process.WaitForExitAsync().ConfigureAwait(false);
 
-            if (process.ExitCode == 0 && File.Exists(job.OutputPath) && new FileInfo(job.OutputPath).Length > 0)
-            {
-                job.Size = new FileInfo(job.OutputPath).Length;
-                job.Progress = 100;
-                job.State = JobState.Done;
-                _logger.LogInformation("[TranscodeDownloader] finished {File} ({Size} bytes)", job.FileName, job.Size);
-            }
-            else
-            {
-                job.State = JobState.Error;
-                job.Error = Tail(stderr.ToString()) ?? string.Format(CultureInfo.InvariantCulture, "ffmpeg exit {0}", process.ExitCode);
-                _logger.LogWarning("[TranscodeDownloader] job {Id} failed: {Error}", job.Id, job.Error);
-                TryDelete(job.OutputPath);
+                    if (job.State == JobState.Cancelled)
+                    {
+                        TryDelete(job.OutputPath);
+                        return;
+                    }
+
+                    if (process.ExitCode == 0 && File.Exists(job.OutputPath) && new FileInfo(job.OutputPath).Length > 0)
+                    {
+                        job.Size = new FileInfo(job.OutputPath).Length;
+                        job.Progress = 100;
+                        job.State = JobState.Done;
+                        _logger.LogInformation("[TranscodeDownloader] finished {File} ({Size} bytes)", job.FileName, job.Size);
+                        return;
+                    }
+
+                    var error = Tail(stderr.ToString()) ?? string.Format(CultureInfo.InvariantCulture, "ffmpeg exit {0}", process.ExitCode);
+                    TryDelete(job.OutputPath);
+
+                    if (attempt < maxAttempts)
+                    {
+                        _logger.LogWarning("[TranscodeDownloader] job {Id} attempt {Attempt}/{Max} failed ({Error}); retrying", job.Id, attempt, maxAttempts, error);
+                        job.Progress = 0;
+                        await Task.Delay(2000).ConfigureAwait(false);
+                        if (job.State == JobState.Cancelled)
+                        {
+                            return;
+                        }
+
+                        continue;
+                    }
+
+                    job.State = JobState.Error;
+                    job.Error = error;
+                    _logger.LogWarning("[TranscodeDownloader] job {Id} failed after {Max} attempts: {Error}", job.Id, maxAttempts, job.Error);
+                }
             }
         }
         catch (Exception ex)

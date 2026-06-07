@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.0.5 - 2026-06-07
+- Add **Download all** for series and seasons: the "Download all" menu action opens the quality
+  picker and transcodes every episode, with a per-episode progress list and a download link as
+  each one finishes. Closing the dialog cancels anything still running so it does not keep
+  loading the server.
+- Retry a transcode once on a transient server error (Jellyfin's internal stream occasionally
+  returns a 5XX when several transcodes start at once), so large batches do not drop episodes.
+- README: document the new features and how to use them.
+
 ## v1.0.4 - 2026-06-07
 - Embed text subtitle tracks in the transcoded download so they can be selected in the local
   player. Subtitles from the source (both embedded tracks and external sidecar files) are muxed
