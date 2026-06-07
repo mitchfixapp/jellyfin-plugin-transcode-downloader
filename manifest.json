@@ -1,69 +1,69 @@
 [
-  {
-    "guid": "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
-    "name": "Transcode Downloader",
-    "description": "Download a server-side transcoded (smaller) version of a movie or episode, or the original, straight from the Jellyfin web UI.",
-    "overview": "Quality picker for downloads, powered by the built-in Jellyfin transcoder.",
-    "owner": "MitchFix.App",
-    "category": "General",
-    "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
-    "versions": [
-      {
-        "version": "1.0.6.0",
-        "changelog": "- \"Download all\": keep the bulk download button locked until every episode has finished, add a\n  download icon next to each finished episode, and fix the progress-list spacing.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.6/transcode-downloader_1.0.6.0.zip",
-        "checksum": "59fd6a70859039866c3112532681401a",
-        "timestamp": "2026-06-07T21:18:50.0000000Z"
-      },
-      {
-        "version": "1.0.5.0",
-        "changelog": "- Add **Download all** for series and seasons: the \"Download all\" menu action opens the quality\n  picker and transcodes every episode, with a per-episode progress list and a download link as\n  each one finishes. Closing the dialog cancels anything still running so it does not keep\n  loading the server.\n- Retry a transcode once on a transient server error (Jellyfin's internal stream occasionally\n  returns a 5XX when several transcodes start at once), so large batches do not drop episodes.\n- README: document the new features and how to use them.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.5/transcode-downloader_1.0.5.0.zip",
-        "checksum": "d6f55449ba15c8e45506e9b325b72c15",
-        "timestamp": "2026-06-07T21:03:16.0000000Z"
-      },
-      {
-        "version": "1.0.4.0",
-        "changelog": "- Embed text subtitle tracks in the transcoded download so they can be selected in the local\n  player. Subtitles from the source (both embedded tracks and external sidecar files) are muxed\n  in as soft `mov_text` tracks with their language and title. Image subtitles (PGS / VOBSUB) are\n  skipped because an MP4 cannot carry them as text. Verified on a 480p transcode: the output now\n  contains the English and Dutch subtitle tracks.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.4/transcode-downloader_1.0.4.0.zip",
-        "checksum": "47afeb9f7d165c2b8b19ccaa0fe6f5b0",
-        "timestamp": "2026-06-07T20:13:27.0000000Z"
-      },
-      {
-        "version": "1.0.3.0",
-        "changelog": "- Fix the \"Start download\" link not working in the native Jellyfin apps (Android/iOS). Those\n  apps run the web client in a WebView that ignores the `<a download>` attribute, and their\n  NativeShell only re-downloads the original by item id (it cannot reach our transcoded file).\n  The download now routes through `NativeShell.openUrl` on native apps, so the device browser /\n  download manager fetches the file (honouring Content-Disposition and the api_key in the URL);\n  browsers keep the direct `<a download>` path.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.3/transcode-downloader_1.0.3.0.zip",
-        "checksum": "d985abe4faab0e2c26c0064beae1374f",
-        "timestamp": "2026-06-07T19:51:00.0000000Z"
-      },
-      {
-        "version": "1.0.2.0",
-        "changelog": "- Close the Jellyfin \"...\" action sheet when the quality picker opens. That menu is a\n  div-based dialog that ignores synthetic Escape, backdrop clicks and history.back(), so it\n  is now dismissed by removing its container and backdrop from the DOM. Verified in-browser:\n  the menu closes, the picker opens, and transcode/cancel work.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.2/transcode-downloader_1.0.2.0.zip",
-        "checksum": "f203edf1f1abb19dbf0abbe9723ee35c",
-        "timestamp": "2026-06-07T19:28:07.0000000Z"
-      },
-      {
-        "version": "1.0.1.0",
-        "changelog": "- Fix the download button not appearing in the web UI. The File Transformation callback is now\n  registered using that plugin's own JObject type, so the reflection call no longer fails with\n  \"Object of type JObject cannot be converted to type JObject\" (an assembly-identity clash). The\n  plugin no longer bundles its own Newtonsoft.Json.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.1/transcode-downloader_1.0.1.0.zip",
-        "checksum": "d9fa40a9dabbe7195ce2ea298d5ff85e",
-        "timestamp": "2026-06-07T18:43:56.0000000Z"
-      },
-      {
-        "version": "1.0.0.0",
-        "changelog": "- Initial release.\n- Adds a quality picker to Jellyfin's **Download** action in the web client and the official\n  mobile apps: download the **Original**, or a smaller server-side transcode\n  (**480p / 720p / 1080p / 4K**, configurable).\n- Reuses Jellyfin's own encoder (NVENC / QSV / VAAPI / software), so **no API key is required**.\n- Output is a faststart **MP4** with a progress bar, cancel support, proper file names\n  (including `Show SxxExx Title`), and **no upscaling** (qualities above the source are hidden).\n- **Settings page**: video codec, audio bitrate and channels, \"Original\" toggle, max concurrent\n  transcodes, orphan timeout, retention/cleanup days, and quality presets.\n- **Scheduled cleanup** task removes finished transcode files after the configured retention.\n- **Dual-licensed**: free under AGPL-3.0 for personal, home, and non-profit use; a separate\n  commercial license is available for closed-source or commercial use.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.0/transcode-downloader_1.0.0.0.zip",
-        "checksum": "c2d1c0d27090f0c292c33dc2acf57d66",
-        "timestamp": "2026-06-07T17:48:19.0000000Z"
-      }
-    ]
-  }
+    {
+        "guid":  "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
+        "name":  "Transcode Downloader",
+        "description":  "Download a server-side transcoded (smaller) version of a movie or episode, or the original, straight from the Jellyfin web UI.",
+        "overview":  "Quality picker for downloads, powered by the built-in Jellyfin transcoder.",
+        "owner":  "MitchFix.App",
+        "category":  "General",
+        "imageUrl":  "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
+        "versions":  [
+                         {
+                             "version":  "1.0.6.0",
+                             "changelog":  "- \"Download all\": keep the bulk download button locked until every episode has finished, add a\n  download icon next to each finished episode, and fix the progress-list spacing.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.6/transcode-downloader_1.0.6.0.zip",
+                             "checksum":  "59fd6a70859039866c3112532681401a",
+                             "timestamp":  "2026-06-07T21:18:50.0000000Z"
+                         },
+                         {
+                             "version":  "1.0.5.0",
+                             "changelog":  "- Add **Download all** for series and seasons: pick one quality and download every episode, with\n  a per-episode progress list and a download icon for each finished episode.\n- Automatically retry an episode once if the server transcode hiccups during a large batch.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.5/transcode-downloader_1.0.5.0.zip",
+                             "checksum":  "d6f55449ba15c8e45506e9b325b72c15",
+                             "timestamp":  "2026-06-07T21:03:16.0000000Z"
+                         },
+                         {
+                             "version":  "1.0.4.0",
+                             "changelog":  "- Embed selectable subtitle tracks in transcoded downloads so you can pick them in your player.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.4/transcode-downloader_1.0.4.0.zip",
+                             "checksum":  "47afeb9f7d165c2b8b19ccaa0fe6f5b0",
+                             "timestamp":  "2026-06-07T20:13:27.0000000Z"
+                         },
+                         {
+                             "version":  "1.0.3.0",
+                             "changelog":  "- Fix downloads not working in the native Jellyfin apps (Android and the iOS Jellyfin Mobile app).",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.3/transcode-downloader_1.0.3.0.zip",
+                             "checksum":  "d985abe4faab0e2c26c0064beae1374f",
+                             "timestamp":  "2026-06-07T19:51:00.0000000Z"
+                         },
+                         {
+                             "version":  "1.0.2.0",
+                             "changelog":  "- Close the \"...\" menu when the download quality picker opens.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.2/transcode-downloader_1.0.2.0.zip",
+                             "checksum":  "f203edf1f1abb19dbf0abbe9723ee35c",
+                             "timestamp":  "2026-06-07T19:28:07.0000000Z"
+                         },
+                         {
+                             "version":  "1.0.1.0",
+                             "changelog":  "- Fix the download button not appearing in the web client.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.1/transcode-downloader_1.0.1.0.zip",
+                             "checksum":  "d9fa40a9dabbe7195ce2ea298d5ff85e",
+                             "timestamp":  "2026-06-07T18:43:56.0000000Z"
+                         },
+                         {
+                             "version":  "1.0.0.0",
+                             "changelog":  "- Initial release.\n- Adds a quality picker to Jellyfin\u0027s **Download** action in the web client and the official\n  mobile apps: download the **Original**, or a smaller server-side transcode\n  (**480p / 720p / 1080p / 4K**, configurable).\n- Reuses Jellyfin\u0027s own encoder (NVENC / QSV / VAAPI / software), so **no API key is required**.\n- Output is a faststart **MP4** with a progress bar, cancel support, proper file names\n  (including `Show SxxExx Title`), and **no upscaling** (qualities above the source are hidden).\n- **Settings page**: video codec, audio bitrate and channels, \"Original\" toggle, max concurrent\n  transcodes, orphan timeout, retention/cleanup days, and quality presets.\n- **Scheduled cleanup** task removes finished transcode files after the configured retention.\n- **Dual-licensed**: free under AGPL-3.0 for personal, home, and non-profit use; a separate\n  commercial license is available for closed-source or commercial use.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.0/transcode-downloader_1.0.0.0.zip",
+                             "checksum":  "c2d1c0d27090f0c292c33dc2acf57d66",
+                             "timestamp":  "2026-06-07T17:48:19.0000000Z"
+                         }
+                     ]
+    }
 ]
