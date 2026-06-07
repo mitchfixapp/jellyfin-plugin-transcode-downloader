@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0-beta.1 - 2026-06-08
+- "Download all": the bulk button now unlocks only once **every** episode has transcoded
+  successfully. If an episode fails, a **retry** button appears next to it to re-run just that
+  one, and the bulk button stays locked until it succeeds.
+- "Download all": per-episode quality fallback — when you pick a quality that is higher than an
+  episode's source, that episode now downloads at the best quality its source allows instead of
+  being skipped, so a mixed-resolution season still completes.
+
 ## v1.0.6 - 2026-06-07
 - "Download all": keep the bulk download button locked until every episode has finished, add a
   download icon next to each finished episode, and fix the progress-list spacing.

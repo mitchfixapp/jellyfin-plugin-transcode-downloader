@@ -1,0 +1,12 @@
+[
+    {
+        "guid":  "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
+        "name":  "Transcode Downloader (Beta)",
+        "description":  "Beta channel for Transcode Downloader. Pre-release builds for testing before they ship to the stable repository.",
+        "overview":  "Pre-release channel — quality picker for downloads, powered by the built-in Jellyfin transcoder.",
+        "owner":  "MitchFix.App",
+        "category":  "General",
+        "imageUrl":  "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
+        "versions":  []
+    }
+]

@@ -109,6 +109,20 @@ Restart the server (or the container). Afterwards both plugins should show **Act
 
 Open a movie or episode and click **Download** — you'll get the quality picker.
 
+## Beta channel (for testers)
+
+New features are tested on a separate **beta** repository before they ship to the stable one
+above. If you want early builds (and don't mind the occasional rough edge), add this repository
+**instead of** the stable one:
+
+```
+https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/manifest-beta.json
+```
+
+It installs as **Transcode Downloader (Beta)**. Use either the stable repo *or* the beta repo,
+not both at once — they inject the same button. Stable users should stick with the `main`
+repository above.
+
 ## Configuration
 
 **Dashboard → Plugins → Transcode Downloader:**
