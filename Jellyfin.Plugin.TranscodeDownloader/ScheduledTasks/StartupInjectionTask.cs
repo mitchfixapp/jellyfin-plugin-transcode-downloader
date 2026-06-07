@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.TranscodeDownloader.Helpers;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 
 namespace Jellyfin.Plugin.TranscodeDownloader.ScheduledTasks;
 
@@ -81,21 +81,34 @@ public class StartupInjectionTask : IScheduledTask
             .FirstOrDefault(x => x.FullName?.Contains(".FileTransformation", StringComparison.Ordinal) ?? false);
 
         var interfaceType = assembly?.GetType("Jellyfin.Plugin.FileTransformation.PluginInterface");
-        if (interfaceType is null)
+        var registerMethod = interfaceType?.GetMethod("RegisterTransformation");
+        var parameters = registerMethod?.GetParameters();
+        if (registerMethod is null || parameters is null || parameters.Length != 1)
         {
             return false;
         }
 
-        var payload = new JObject
+        // The payload must be a Newtonsoft JObject created by the File Transformation plugin's
+        // own assembly. A JObject from a privately bundled Newtonsoft.Json fails the reflection
+        // bind with "JObject cannot be converted to JObject". So serialize the payload with
+        // System.Text.Json and parse it through that assembly's own JObject.Parse(string).
+        var parseMethod = parameters[0].ParameterType.GetMethod("Parse", new[] { typeof(string) });
+        if (parseMethod is null)
         {
-            { "id", "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88" },
-            { "fileNamePattern", "index.html" },
-            { "callbackAssembly", GetType().Assembly.FullName },
-            { "callbackClass", typeof(TransformationPatches).FullName },
-            { "callbackMethod", nameof(TransformationPatches.IndexHtml) }
-        };
+            return false;
+        }
 
-        interfaceType.GetMethod("RegisterTransformation")?.Invoke(null, new object?[] { payload });
+        var json = JsonSerializer.Serialize(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["id"] = "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
+            ["fileNamePattern"] = "index.html",
+            ["callbackAssembly"] = GetType().Assembly.FullName ?? string.Empty,
+            ["callbackClass"] = typeof(TransformationPatches).FullName ?? string.Empty,
+            ["callbackMethod"] = nameof(TransformationPatches.IndexHtml)
+        });
+
+        var payload = parseMethod.Invoke(null, new object[] { json });
+        registerMethod.Invoke(null, new[] { payload });
         _logger.LogInformation("[TranscodeDownloader] registered script injection with the File Transformation plugin.");
         return true;
     }

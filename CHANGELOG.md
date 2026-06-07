@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.0.1 - 2026-06-07
+- Fix the download button not appearing in the web UI. The File Transformation callback is now
+  registered using that plugin's own JObject type, so the reflection call no longer fails with
+  "Object of type JObject cannot be converted to type JObject" (an assembly-identity clash). The
+  plugin no longer bundles its own Newtonsoft.Json.
+
 ## v1.0.0 - 2026-06-07
 - Initial release.
 - Adds a quality picker to Jellyfin's **Download** action in the web client and the official
