@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.0.1 - 2026-06-07
+- Add a catalog icon: a dark tile with the Jellyfin logo, the Material `file_download`
+  icon, media icons (film / clapperboard / tv), and the plugin name. Source and PNG
+  variants live in [`logo/`](logo/).
+
 ## v1.0.0 - 2026-06-07
 - Initial release.
 - Adds a quality picker to Jellyfin's **Download** action in the web client and the official
