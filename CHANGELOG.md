@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.0.2 - 2026-06-07
+- Close the Jellyfin "..." action sheet when the quality picker opens. That menu is a
+  div-based dialog that ignores synthetic Escape, backdrop clicks and history.back(), so it
+  is now dismissed by removing its container and backdrop from the DOM. Verified in-browser:
+  the menu closes, the picker opens, and transcode/cancel work.
+
 ## v1.0.1 - 2026-06-07
 - Fix the download button not appearing in the web UI. The File Transformation callback is now
   registered using that plugin's own JObject type, so the reflection call no longer fails with

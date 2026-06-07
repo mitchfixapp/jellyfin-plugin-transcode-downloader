@@ -41,11 +41,24 @@
 
   // ---- hijack native download ----------------------------------------------
   function closeSheet(fromEl) {
-    var dlg = fromEl && fromEl.closest ? fromEl.closest("dialog") : null;
-    if (dlg && typeof dlg.close === "function") { try { dlg.close(); return; } catch (e) { /* noop */ } }
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, which: 27, bubbles: true }));
-    var bd = document.querySelector(".dialogBackdrop.dialogBackdropOpened") || document.querySelector(".dialogBackdrop");
-    if (bd) { try { bd.click(); } catch (e) { /* noop */ } }
+    // Jellyfin's action sheet is a div-based dialog (.dialog.actionSheet.opened) inside a
+    // .dialogContainer, with a separate .dialogBackdrop. It is NOT a native <dialog> and it
+    // ignores synthetic Escape, backdrop clicks and history.back(). Removing the container and
+    // backdrop from the DOM is the reliable way to dismiss it (verified on Jellyfin 10.11).
+    var dlg = (fromEl && fromEl.closest) ? fromEl.closest("dialog, .dialog, .actionSheet") : null;
+    if (!dlg) { dlg = document.querySelector(".actionSheet.opened") || document.querySelector(".dialog.opened"); }
+    if (!dlg) { return; }
+    if (dlg.tagName === "DIALOG" && typeof dlg.close === "function") {
+      try { dlg.close(); } catch (e) { /* noop */ }
+    }
+    try { dlg.classList.remove("opened"); } catch (e) { /* noop */ }
+    var container = dlg.closest ? dlg.closest(".dialogContainer") : null;
+    var toRemove = container || dlg;
+    if (toRemove && toRemove.parentNode) { try { toRemove.parentNode.removeChild(toRemove); } catch (e) { /* noop */ } }
+    var bds = document.querySelectorAll(".dialogBackdrop");
+    for (var i = 0; i < bds.length; i++) {
+      if (bds[i].parentNode) { try { bds[i].parentNode.removeChild(bds[i]); } catch (e) { /* noop */ } }
+    }
   }
 
   function hijack(el, isSheetItem) {
