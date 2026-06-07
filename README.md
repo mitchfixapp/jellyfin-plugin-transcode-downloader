@@ -146,4 +146,4 @@ reads the release notes from [`CHANGELOG.md`](CHANGELOG.md).
 - For **closed-source or commercial** use without the AGPL obligations, a separate
   **commercial license** is available — see [COMMERCIAL.md](COMMERCIAL.md).
 
-© 2026 Mitchell Doedens.
+© 2026 MitchFix.App.

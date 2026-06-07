@@ -32,11 +32,11 @@ then you need a **separate commercial license** from the author.
 
 Contact the author:
 
-- **Mitchell Doedens**
+- **MitchFix.App**
 - Email: <info@mitchfix.app>
 - Or open an issue: <https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/issues>
 
 ---
 
-© 2026 Mitchell Doedens. Unless you have a signed commercial license, your use is
+© 2026 MitchFix.App. Unless you have a signed commercial license, your use is
 governed by the AGPL-3.0.

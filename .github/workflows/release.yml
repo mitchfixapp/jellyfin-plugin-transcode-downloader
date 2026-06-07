@@ -71,7 +71,7 @@ jobs:
             name: "Transcode Downloader",
             description: "Download a server-side transcoded (smaller) version of a movie or episode, or the original, straight from the Jellyfin web UI.",
             overview: "Quality picker for downloads, powered by the built-in Jellyfin transcoder.",
-            owner: "Mitchell Doedens",
+            owner: "MitchFix.App",
             targetAbi: "10.11.0.0",
             framework: "net9.0",
             version: $v,

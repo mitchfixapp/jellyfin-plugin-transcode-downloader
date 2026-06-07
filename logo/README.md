@@ -5,13 +5,12 @@ Catalog artwork for the Transcode Downloader plugin.
 | File | Purpose |
 |------|---------|
 | `icon.svg` | Editable source |
-| `icon.png` | 512×512 — used as `imageUrl` in `manifest.json` (the catalog tile) |
-| `icon-256.png` | 256×256 |
-| `icon-1024.png` | 1024×1024 |
+| `icon.png` | 1920x1080 (16:9) catalog tile, used as `imageUrl` in `manifest.json` |
 
-The artwork is a dark tile with the **Jellyfin logo** (brand base), the Material
-`file_download` icon (as used in the Jellyfin UI), media icons (film / clapperboard / tv),
-and the plugin name.
+The artwork follows the Jellyfin plugin-catalog style: a dark frame with a centered
+rounded tile (so the catalog never crops the content), the **Jellyfin logo** (brand base),
+the Material `file_download` icon (as used in the Jellyfin UI), media icons
+(film / clapperboard / tv), and the plugin name.
 
 ## Attribution
 
@@ -19,8 +18,10 @@ The Jellyfin logo mark is © the Jellyfin contributors and is licensed under
 **CC BY-SA 4.0** (<https://github.com/jellyfin/jellyfin-ux>). The remaining artwork is part
 of this plugin and shares its license.
 
-To regenerate the PNGs from the source after editing `icon.svg`:
+## Regenerate the PNG from the source
+
+After editing `icon.svg`, re-render `icon.png` at 1920 wide:
 
 ```bash
-npx @resvg/resvg-js-cli icon.svg -o icon.png   # or render at 256/512/1024
+npx @resvg/resvg-js-cli icon.svg -o icon.png --width 1920
 ```

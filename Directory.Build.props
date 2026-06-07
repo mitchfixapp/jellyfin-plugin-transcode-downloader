@@ -3,7 +3,7 @@
         <Version>1.0.0.0</Version>
         <AssemblyVersion>1.0.0.0</AssemblyVersion>
         <FileVersion>1.0.0.0</FileVersion>
-        <Authors>Mitchell Doedens</Authors>
-        <Copyright>Copyright (C) 2026 Mitchell Doedens. Licensed under AGPL-3.0 or a commercial license.</Copyright>
+        <Authors>MitchFix.App</Authors>
+        <Copyright>Copyright (C) 2026 MitchFix.App. Licensed under AGPL-3.0 or a commercial license.</Copyright>
     </PropertyGroup>
 </Project>
