@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
     "versions": [
       {
+        "version": "1.0.3.0",
+        "changelog": "- Fix the \"Start download\" link not working in the native Jellyfin apps (Android/iOS). Those\n  apps run the web client in a WebView that ignores the `<a download>` attribute, and their\n  NativeShell only re-downloads the original by item id (it cannot reach our transcoded file).\n  The download now routes through `NativeShell.openUrl` on native apps, so the device browser /\n  download manager fetches the file (honouring Content-Disposition and the api_key in the URL);\n  browsers keep the direct `<a download>` path.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.3/transcode-downloader_1.0.3.0.zip",
+        "checksum": "d985abe4faab0e2c26c0064beae1374f",
+        "timestamp": "2026-06-07T19:51:00.0000000Z"
+      },
+      {
         "version": "1.0.2.0",
         "changelog": "- Close the Jellyfin \"...\" action sheet when the quality picker opens. That menu is a\n  div-based dialog that ignores synthetic Escape, backdrop clicks and history.back(), so it\n  is now dismissed by removing its container and backdrop from the DOM. Verified in-browser:\n  the menu closes, the picker opens, and transcode/cancel work.",
         "targetAbi": "10.11.0.0",
