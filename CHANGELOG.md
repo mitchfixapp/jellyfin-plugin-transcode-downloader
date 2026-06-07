@@ -4,41 +4,26 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.0.6 - 2026-06-07
+- "Download all": keep the bulk download button locked until every episode has finished, add a
+  download icon next to each finished episode, and fix the progress-list spacing.
+
 ## v1.0.5 - 2026-06-07
-- Add **Download all** for series and seasons: the "Download all" menu action opens the quality
-  picker and transcodes every episode, with a per-episode progress list and a download link as
-  each one finishes. Closing the dialog cancels anything still running so it does not keep
-  loading the server.
-- Retry a transcode once on a transient server error (Jellyfin's internal stream occasionally
-  returns a 5XX when several transcodes start at once), so large batches do not drop episodes.
-- README: document the new features and how to use them.
+- Add **Download all** for series and seasons: pick one quality and download every episode, with
+  a per-episode progress list and a download icon for each finished episode.
+- Automatically retry an episode once if the server transcode hiccups during a large batch.
 
 ## v1.0.4 - 2026-06-07
-- Embed text subtitle tracks in the transcoded download so they can be selected in the local
-  player. Subtitles from the source (both embedded tracks and external sidecar files) are muxed
-  in as soft `mov_text` tracks with their language and title. Image subtitles (PGS / VOBSUB) are
-  skipped because an MP4 cannot carry them as text. Verified on a 480p transcode: the output now
-  contains the English and Dutch subtitle tracks.
+- Embed selectable subtitle tracks in transcoded downloads so you can pick them in your player.
 
 ## v1.0.3 - 2026-06-07
-- Fix the "Start download" link not working in the native Jellyfin apps (Android/iOS). Those
-  apps run the web client in a WebView that ignores the `<a download>` attribute, and their
-  NativeShell only re-downloads the original by item id (it cannot reach our transcoded file).
-  The download now routes through `NativeShell.openUrl` on native apps, so the device browser /
-  download manager fetches the file (honouring Content-Disposition and the api_key in the URL);
-  browsers keep the direct `<a download>` path.
+- Fix downloads not working in the native Jellyfin apps (Android and the iOS Jellyfin Mobile app).
 
 ## v1.0.2 - 2026-06-07
-- Close the Jellyfin "..." action sheet when the quality picker opens. That menu is a
-  div-based dialog that ignores synthetic Escape, backdrop clicks and history.back(), so it
-  is now dismissed by removing its container and backdrop from the DOM. Verified in-browser:
-  the menu closes, the picker opens, and transcode/cancel work.
+- Close the "..." menu when the download quality picker opens.
 
 ## v1.0.1 - 2026-06-07
-- Fix the download button not appearing in the web UI. The File Transformation callback is now
-  registered using that plugin's own JObject type, so the reflection call no longer fails with
-  "Object of type JObject cannot be converted to type JObject" (an assembly-identity clash). The
-  plugin no longer bundles its own Newtonsoft.Json.
+- Fix the download button not appearing in the web client.
 
 ## v1.0.0 - 2026-06-07
 - Initial release.

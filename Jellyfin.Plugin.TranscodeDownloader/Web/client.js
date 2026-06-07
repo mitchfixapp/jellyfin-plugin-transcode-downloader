@@ -296,27 +296,38 @@
     });
   }
 
+  function downloadIcon(url, filename) {
+    var a = document.createElement("a");
+    a.href = url;
+    a.setAttribute("download", filename || "");
+    a.title = "Download";
+    a.style.cssText = "flex:none;display:inline-flex;align-items:center;justify-content:flex-end;min-width:4.5em;color:" + ACCENT + ";cursor:pointer;";
+    a.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>';
+    a.addEventListener("click", function (e) { e.preventDefault(); triggerDownload(url, filename); });
+    return a;
+  }
+
   function startAllJobs(children, height, ov, c) {
     c.innerHTML =
       '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;">Transcoding ' + children.length + ' episodes…</div>' +
-      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">Queued on the server; a download link appears as each one finishes.</div>';
+      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">Queued on the server; a download icon appears next to each one as it finishes.</div>';
 
     var list = document.createElement("div");
-    list.style.cssText = "max-height:48vh;overflow:auto;margin-bottom:.6em;";
+    list.style.cssText = "max-height:48vh;overflow-y:auto;padding-right:12px;margin-bottom:.7em;";
     c.appendChild(list);
 
     var finished = [];
     var tracked = [];
-    var batch = { stopped: false };
+    var batch = { stopped: false, settled: 0, total: children.length, onSettle: null };
     children.forEach(function (ch) {
       var row = document.createElement("div");
-      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:.6em;padding:.45em 0;border-top:1px solid rgba(255,255,255,.07);font-size:.82em;";
+      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.45em 0;border-top:1px solid rgba(255,255,255,.07);font-size:.82em;";
       var name = document.createElement("span");
       name.textContent = ch.name;
       name.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
       var state = document.createElement("span");
       state.textContent = "queued";
-      state.style.cssText = "flex:none;opacity:.6;min-width:5.5em;text-align:right;";
+      state.style.cssText = "flex:none;opacity:.6;min-width:4.5em;text-align:right;";
       row.appendChild(name);
       row.appendChild(state);
       list.appendChild(row);
@@ -336,16 +347,30 @@
 
     var footer = document.createElement("div");
     footer.style.cssText = "display:flex;gap:.5em;";
+    var all = null;
     if (!isNativeApp()) {
-      var all = document.createElement("button");
+      all = document.createElement("button");
       all.type = "button";
-      all.textContent = "Download finished";
-      all.style.cssText = "flex:1;background:" + ACCENT + ";color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;font-weight:600;";
+      all.textContent = "Download all (transcoding…)";
+      all.disabled = true;
+      all.style.cssText = "flex:1;background:" + ACCENT + ";color:#fff;border:0;border-radius:8px;padding:.6em;cursor:default;font-weight:600;opacity:.45;transition:opacity .2s;";
       all.addEventListener("click", function () {
+        if (all.disabled) { return; }
         finished.forEach(function (d, i) { setTimeout(function () { triggerDownload(d.url, d.filename); }, i * 800); });
       });
       footer.appendChild(all);
     }
+
+    // Keep "Download all" locked until every episode has finished transcoding.
+    batch.onSettle = function () {
+      batch.settled++;
+      if (all && batch.settled >= batch.total && finished.length > 0) {
+        all.disabled = false;
+        all.style.opacity = "1";
+        all.style.cursor = "pointer";
+        all.textContent = "Download all (" + finished.length + ")";
+      }
+    };
 
     var close = document.createElement("button");
     close.type = "button";
@@ -366,12 +391,18 @@
       .then(function (j) {
         rec.jobId = j.jobId;
         if (batch.stopped) { rec.finished = true; fetch(svc("/Jobs/" + j.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); return; }
-        pollEpisode(j.jobId, j.filename, row, state, finished, rec);
+        pollEpisode(j.jobId, j.filename, row, state, finished, rec, batch);
       })
-      .catch(function (err) { rec.finished = true; state.textContent = "failed"; state.title = err.message; state.style.color = "#ff6b6b"; });
+      .catch(function (err) {
+        rec.finished = true;
+        state.textContent = "failed";
+        state.title = err.message;
+        state.style.color = "#ff6b6b";
+        if (batch.onSettle) { batch.onSettle(); }
+      });
   }
 
-  function pollEpisode(jobId, filename, row, state, finished, rec) {
+  function pollEpisode(jobId, filename, row, state, finished, rec, batch) {
     var url = svc("/Jobs/" + jobId + "/File");
     rec.timer = setInterval(function () {
       fetch(svc("/Jobs/" + jobId))
@@ -382,16 +413,19 @@
           else if (s.state === "done") {
             clearInterval(rec.timer); rec.timer = null; rec.finished = true;
             finished.push({ url: url, filename: filename });
-            var dl = document.createElement("a");
-            dl.href = url;
-            dl.setAttribute("download", filename || "");
-            dl.textContent = "download";
-            dl.style.cssText = "flex:none;color:" + ACCENT + ";text-decoration:none;font-weight:600;min-width:5.5em;text-align:right;";
-            dl.addEventListener("click", function (e) { e.preventDefault(); triggerDownload(url, filename); });
-            row.replaceChild(dl, state);
+            row.replaceChild(downloadIcon(url, filename), state);
+            if (batch.onSettle) { batch.onSettle(); }
           }
-          else if (s.state === "error") { clearInterval(rec.timer); rec.timer = null; rec.finished = true; state.textContent = "error"; state.title = s.error || ""; state.style.color = "#ff6b6b"; }
-          else if (s.state === "cancelled") { clearInterval(rec.timer); rec.timer = null; rec.finished = true; state.textContent = "cancelled"; }
+          else if (s.state === "error") {
+            clearInterval(rec.timer); rec.timer = null; rec.finished = true;
+            state.textContent = "error"; state.title = s.error || ""; state.style.color = "#ff6b6b";
+            if (batch.onSettle) { batch.onSettle(); }
+          }
+          else if (s.state === "cancelled") {
+            clearInterval(rec.timer); rec.timer = null; rec.finished = true;
+            state.textContent = "cancelled";
+            if (batch.onSettle) { batch.onSettle(); }
+          }
         })
         .catch(function () { /* keep polling */ });
     }, 2000);

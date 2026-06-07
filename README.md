@@ -1,4 +1,4 @@
-<p align="center"><img src="logo/icon.png" width="128" alt="Transcode Downloader"></p>
+<p align="center"><img src="logo/icon.png" width="560" alt="Transcode Downloader"></p>
 
 <h1 align="center">Transcode Downloader</h1>
 
