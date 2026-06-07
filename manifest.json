@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
     "versions": [
       {
+        "version": "1.0.2.0",
+        "changelog": "- Close the Jellyfin \"...\" action sheet when the quality picker opens. That menu is a\n  div-based dialog that ignores synthetic Escape, backdrop clicks and history.back(), so it\n  is now dismissed by removing its container and backdrop from the DOM. Verified in-browser:\n  the menu closes, the picker opens, and transcode/cancel work.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.2/transcode-downloader_1.0.2.0.zip",
+        "checksum": "f203edf1f1abb19dbf0abbe9723ee35c",
+        "timestamp": "2026-06-07T19:28:07.0000000Z"
+      },
+      {
         "version": "1.0.1.0",
         "changelog": "- Fix the download button not appearing in the web UI. The File Transformation callback is now\n  registered using that plugin's own JObject type, so the reflection call no longer fails with\n  \"Object of type JObject cannot be converted to type JObject\" (an assembly-identity clash). The\n  plugin no longer bundles its own Newtonsoft.Json.",
         "targetAbi": "10.11.0.0",
