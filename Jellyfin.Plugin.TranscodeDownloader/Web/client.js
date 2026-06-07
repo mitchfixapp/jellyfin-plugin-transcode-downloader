@@ -157,10 +157,23 @@
     if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); }
   }
 
-  function triggerDownload(url) {
+  function isNativeApp() {
+    return !!(window.NativeShell && typeof window.NativeShell.openUrl === "function");
+  }
+
+  function triggerDownload(url, filename) {
+    // The native Jellyfin apps (Android/iOS WebView) ignore the <a download> trick, and their
+    // NativeShell.downloadFiles only re-fetches the ORIGINAL by itemId (it cannot reach our
+    // transcoded file). Route the download through NativeShell.openUrl so the device browser /
+    // download manager handles it: the server sends Content-Disposition: attachment and the
+    // api_key travels in the URL, so it downloads directly. Browsers keep the <a download> path.
+    if (isNativeApp()) {
+      try { window.NativeShell.openUrl(url, "_blank"); return; } catch (e) { /* fall through */ }
+    }
     var a = document.createElement("a");
     a.href = url;
-    a.setAttribute("download", "");
+    a.setAttribute("download", filename || "");
+    a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -220,18 +233,21 @@
     c.innerHTML =
       '<div style="font-size:1.05em;font-weight:600;margin-bottom:.3em;">Ready ✓</div>' +
       '<div style="opacity:.7;font-size:.85em;margin-bottom:1em;word-break:break-all;">' + (filename || "file") + "</div>";
+    var url = svc("/Jobs/" + jobId + "/File");
     var dl = document.createElement("a");
-    dl.href = svc("/Jobs/" + jobId + "/File");
+    dl.href = url;
     dl.setAttribute("download", filename || "");
     dl.textContent = "Start download";
     dl.style.cssText = "display:block;text-align:center;background:" + ACCENT + ";color:#fff;text-decoration:none;border-radius:8px;padding:.7em;font-weight:600;margin-bottom:.4em;";
+    dl.addEventListener("click", function (e) { e.preventDefault(); triggerDownload(url, filename); });
     c.appendChild(dl);
     var close = document.createElement("button");
     close.textContent = "Close";
     close.style.cssText = "width:100%;background:transparent;color:#9aa;border:0;padding:.5em;cursor:pointer;";
     close.addEventListener("click", function () { var ov = c.parentNode; if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
     c.appendChild(close);
-    dl.click();
+    // Auto-start in browsers; in the native app wait for an explicit tap (openUrl switches apps).
+    if (!isNativeApp()) { triggerDownload(url, filename); }
   }
 
   function fail(c, msg) {

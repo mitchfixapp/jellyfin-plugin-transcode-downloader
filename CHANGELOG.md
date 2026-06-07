@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.0.3 - 2026-06-07
+- Fix the "Start download" link not working in the native Jellyfin apps (Android/iOS). Those
+  apps run the web client in a WebView that ignores the `<a download>` attribute, and their
+  NativeShell only re-downloads the original by item id (it cannot reach our transcoded file).
+  The download now routes through `NativeShell.openUrl` on native apps, so the device browser /
+  download manager fetches the file (honouring Content-Disposition and the api_key in the URL);
+  browsers keep the direct `<a download>` path.
+
 ## v1.0.2 - 2026-06-07
 - Close the Jellyfin "..." action sheet when the quality picker opens. That menu is a
   div-based dialog that ignores synthetic Escape, backdrop clicks and history.back(), so it
