@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
     "versions": [
       {
+        "version": "1.0.6.0",
+        "changelog": "- \"Download all\": keep the bulk download button locked until every episode has finished, add a\n  download icon next to each finished episode, and fix the progress-list spacing.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.6/transcode-downloader_1.0.6.0.zip",
+        "checksum": "59fd6a70859039866c3112532681401a",
+        "timestamp": "2026-06-07T21:18:50.0000000Z"
+      },
+      {
         "version": "1.0.5.0",
         "changelog": "- Add **Download all** for series and seasons: the \"Download all\" menu action opens the quality\n  picker and transcodes every episode, with a per-episode progress list and a download link as\n  each one finishes. Closing the dialog cancels anything still running so it does not keep\n  loading the server.\n- Retry a transcode once on a transient server error (Jellyfin's internal stream occasionally\n  returns a 5XX when several transcodes start at once), so large batches do not drop episodes.\n- README: document the new features and how to use them.",
         "targetAbi": "10.11.0.0",
