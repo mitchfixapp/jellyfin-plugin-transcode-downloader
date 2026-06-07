@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#AA5CC3"/>
+      <stop offset="1" stop-color="#00A4DC"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="256" y1="0" x2="256" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded-square (squircle-ish) background with Jellyfin-style gradient -->
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="116" fill="url(#sheen)"/>
+
+  <!-- download arrow (shaft + head) -->
+  <g fill="#ffffff">
+    <rect x="225" y="116" width="62" height="156" rx="31"/>
+    <path d="M158 236 L354 236 L256 374 Z"/>
+  </g>
+
+  <!-- tray / device (open box the arrow points into) -->
+  <path d="M150 356 L150 398 Q150 424 176 424 L336 424 Q362 424 362 398 L362 356"
+        fill="none" stroke="#ffffff" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

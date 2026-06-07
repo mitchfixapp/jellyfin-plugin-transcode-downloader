@@ -1,0 +1,12 @@
+[
+  {
+    "guid": "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
+    "name": "Transcode Downloader",
+    "description": "Download a server-side transcoded (smaller) version of a movie or episode, or the original, straight from the Jellyfin web UI.",
+    "overview": "Quality picker for downloads, powered by the built-in Jellyfin transcoder.",
+    "owner": "Mitchell Doedens",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/icon.png",
+    "versions": []
+  }
+]

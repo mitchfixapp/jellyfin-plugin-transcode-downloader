@@ -1,0 +1,234 @@
+/*
+ * Transcode Downloader — web client.
+ * Hijacks Jellyfin's native Download action (toolbar button .btnDownload and the
+ * "..." menu item) on movie/episode detail pages and opens a quality picker:
+ * "Original" (direct download) or a server-side transcoded, smaller MP4.
+ * Served by the plugin at /TranscodeDownloader/ClientScript and injected into index.html.
+ */
+(function () {
+  "use strict";
+
+  var ACCENT = "#00a4dc"; // Jellyfin accent blue
+
+  function api() {
+    return window.ApiClient || (window.connectionManager && window.connectionManager.currentApiClient && window.connectionManager.currentApiClient());
+  }
+  function token() {
+    try { return api() && api().accessToken(); } catch (e) { return null; }
+  }
+  function base() {
+    var a = api();
+    try { if (a && a.serverAddress) { return a.serverAddress(); } } catch (e) { /* noop */ }
+    return location.origin;
+  }
+  function svc(path) {
+    return base() + "/TranscodeDownloader" + path + (path.indexOf("?") >= 0 ? "&" : "?") + "api_key=" + encodeURIComponent(token() || "");
+  }
+  function currentItemId() {
+    var m = (location.hash || "").match(/[?&]id=([a-f0-9]{32})/i);
+    return m ? m[1] : null;
+  }
+
+  // ---- server-driven options (per item, cached) ----------------------------
+  var optionsCache = {};
+  function getOptions(itemId) {
+    if (optionsCache[itemId]) { return Promise.resolve(optionsCache[itemId]); }
+    return fetch(svc("/Options?itemId=" + itemId))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (o) { if (o) { optionsCache[itemId] = o; } return o; })
+      .catch(function () { return null; });
+  }
+
+  // ---- hijack native download ----------------------------------------------
+  function closeSheet(fromEl) {
+    var dlg = fromEl && fromEl.closest ? fromEl.closest("dialog") : null;
+    if (dlg && typeof dlg.close === "function") { try { dlg.close(); return; } catch (e) { /* noop */ } }
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, which: 27, bubbles: true }));
+    var bd = document.querySelector(".dialogBackdrop.dialogBackdropOpened") || document.querySelector(".dialogBackdrop");
+    if (bd) { try { bd.click(); } catch (e) { /* noop */ } }
+  }
+
+  function hijack(el, isSheetItem) {
+    if (!el || el.dataset.tdHijacked) { return; }
+    el.dataset.tdHijacked = "1";
+    el.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      if (isSheetItem) { closeSheet(el); setTimeout(openDialog, 90); } else { openDialog(); }
+    }, true);
+  }
+
+  function scan() {
+    var itemId = currentItemId();
+    if (!itemId) { return; }
+    getOptions(itemId).then(function (o) {
+      if (!o || !o.downloadable) { return; }
+      var bars = document.querySelectorAll(".btnDownload");
+      for (var i = 0; i < bars.length; i++) {
+        if (bars[i].offsetParent !== null) { hijack(bars[i], false); }
+      }
+      var sheetItem = document.querySelector('.actionSheetMenuItem[data-id="download"]');
+      if (sheetItem) { hijack(sheetItem, true); }
+    });
+  }
+
+  var scanPending = null;
+  function scheduleScan() {
+    if (scanPending) { return; }
+    scanPending = setTimeout(function () { scanPending = null; scan(); }, 150);
+  }
+  new MutationObserver(scheduleScan).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener("hashchange", scheduleScan);
+  scheduleScan();
+
+  // ---- dialog --------------------------------------------------------------
+  function overlay() {
+    var o = document.createElement("div");
+    o.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);";
+    return o;
+  }
+  function card() {
+    var c = document.createElement("div");
+    c.style.cssText = "background:#101418;color:#fff;border-radius:12px;padding:1.4em 1.4em 1.1em;min-width:300px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,.6);font-family:inherit;border:1px solid rgba(255,255,255,.08);";
+    return c;
+  }
+  function optionButton(title, sub) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%;text-align:left;background:#1b2128;color:#fff;border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:.7em .9em;margin-bottom:.5em;cursor:pointer;transition:background .15s;";
+    b.onmouseenter = function () { b.style.background = "#232b34"; };
+    b.onmouseleave = function () { b.style.background = "#1b2128"; };
+    b.innerHTML = '<span style="font-weight:600;">' + title + '</span>' + (sub ? '<span style="opacity:.55;font-size:.8em;">' + sub + "</span>" : "");
+    return b;
+  }
+
+  function openDialog() {
+    var itemId = currentItemId();
+    var tok = token();
+    if (!itemId || !tok) { alert("Could not determine the item or session. Open a movie/episode first."); return; }
+    getOptions(itemId).then(function (o) {
+      if (!o || !o.downloadable) { alert("This item cannot be downloaded."); return; }
+      var ov = overlay();
+      var c = card();
+      c.innerHTML =
+        '<div style="font-size:1.1em;font-weight:600;margin-bottom:.2em;">Download</div>' +
+        '<div style="opacity:.6;font-size:.85em;margin-bottom:1em;">Original, or a smaller server-side transcode.</div>';
+
+      if (o.showOriginal) {
+        var orig = optionButton("Original", "full file, no transcode — largest");
+        orig.addEventListener("click", function () { downloadOriginal(itemId, tok, ov); });
+        c.appendChild(orig);
+      }
+      (o.presets || []).forEach(function (p) {
+        var b = optionButton(p.label, "transcoded — smaller");
+        b.addEventListener("click", function () { startJob(itemId, p.height, ov, c); });
+        c.appendChild(b);
+      });
+
+      var cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = "Cancel";
+      cancel.style.cssText = "width:100%;margin-top:.3em;background:transparent;color:#9aa;border:0;padding:.6em;cursor:pointer;";
+      cancel.addEventListener("click", function () { document.body.removeChild(ov); });
+      c.appendChild(cancel);
+      ov.appendChild(c);
+      ov.addEventListener("click", function (e) { if (e.target === ov) { document.body.removeChild(ov); } });
+      document.body.appendChild(ov);
+    });
+  }
+
+  function downloadOriginal(itemId, tok, ov) {
+    var url = base() + "/Items/" + itemId + "/Download?api_key=" + encodeURIComponent(tok);
+    triggerDownload(url);
+    if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); }
+  }
+
+  function triggerDownload(url) {
+    var a = document.createElement("a");
+    a.href = url;
+    a.setAttribute("download", "");
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // ---- job + progress ------------------------------------------------------
+  function startJob(itemId, height, ov, c) {
+    c.innerHTML = '<div style="font-size:1.05em;font-weight:600;">Preparing (' + height + "p)…</div>";
+    fetch(svc("/Jobs"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId: itemId, height: height })
+    })
+      .then(function (r) { if (!r.ok) { return r.text().then(function (t) { throw new Error(t || r.status); }); } return r.json(); })
+      .then(function (j) { showProgress(j.jobId, ov, c); })
+      .catch(function (err) { fail(c, "Start failed: " + err.message); });
+  }
+
+  function showProgress(jobId, ov, c) {
+    c.innerHTML =
+      '<div style="font-size:1.05em;font-weight:600;margin-bottom:1em;">Transcoding…</div>' +
+      '<div style="background:#1b2128;border-radius:6px;height:10px;overflow:hidden;margin-bottom:.6em;"><div id="td-bar" style="height:100%;width:0;background:' + ACCENT + ';transition:width .3s;"></div></div>' +
+      '<div id="td-status" style="opacity:.7;font-size:.85em;margin-bottom:1em;">Working…</div>';
+    var bar = c.querySelector("#td-bar");
+    var status = c.querySelector("#td-status");
+    var timer = setInterval(function () {
+      fetch(svc("/Jobs/" + jobId))
+        .then(function (r) { return r.json(); })
+        .then(function (s) {
+          if (s.state === "running" || s.state === "queued") {
+            if (bar) { bar.style.width = (s.progress || 0) + "%"; }
+            if (status) { status.textContent = s.state === "queued" ? "Queued…" : "Transcoding… " + (s.progress || 0) + "%"; }
+          } else if (s.state === "done") {
+            clearInterval(timer); if (bar) { bar.style.width = "100%"; } done(c, jobId, s.filename);
+          } else if (s.state === "error") {
+            clearInterval(timer); fail(c, "Transcode failed: " + (s.error || "unknown"));
+          } else if (s.state === "cancelled") {
+            clearInterval(timer);
+          }
+        })
+        .catch(function () { /* keep polling */ });
+    }, 1500);
+
+    var cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    cancel.style.cssText = "width:100%;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;";
+    cancel.addEventListener("click", function () {
+      clearInterval(timer);
+      fetch(svc("/Jobs/" + jobId), { method: "DELETE" }).catch(function () { /* noop */ });
+      if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); }
+    });
+    c.appendChild(cancel);
+  }
+
+  function done(c, jobId, filename) {
+    c.innerHTML =
+      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.3em;">Ready ✓</div>' +
+      '<div style="opacity:.7;font-size:.85em;margin-bottom:1em;word-break:break-all;">' + (filename || "file") + "</div>";
+    var dl = document.createElement("a");
+    dl.href = svc("/Jobs/" + jobId + "/File");
+    dl.setAttribute("download", filename || "");
+    dl.textContent = "Start download";
+    dl.style.cssText = "display:block;text-align:center;background:" + ACCENT + ";color:#fff;text-decoration:none;border-radius:8px;padding:.7em;font-weight:600;margin-bottom:.4em;";
+    c.appendChild(dl);
+    var close = document.createElement("button");
+    close.textContent = "Close";
+    close.style.cssText = "width:100%;background:transparent;color:#9aa;border:0;padding:.5em;cursor:pointer;";
+    close.addEventListener("click", function () { var ov = c.parentNode; if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
+    c.appendChild(close);
+    dl.click();
+  }
+
+  function fail(c, msg) {
+    c.innerHTML = '<div style="color:#ff6b6b;font-weight:600;margin-bottom:.8em;">' + msg + "</div>";
+    var close = document.createElement("button");
+    close.textContent = "Close";
+    close.style.cssText = "width:100%;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;";
+    close.addEventListener("click", function () { var ov = c.parentNode; if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
+    c.appendChild(close);
+  }
+
+  console.log("[TranscodeDownloader] client loaded");
+})();

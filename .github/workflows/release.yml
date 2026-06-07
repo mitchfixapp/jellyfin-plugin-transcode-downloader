@@ -1,0 +1,117 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version, e.g. 1.0.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            V="${{ github.event.inputs.version }}"
+          else
+            V="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "version4=$V.0" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: >
+          dotnet publish Jellyfin.Plugin.TranscodeDownloader/Jellyfin.Plugin.TranscodeDownloader.csproj
+          -c Release -o publish
+          -p:Version=${{ steps.ver.outputs.version4 }}
+          -p:AssemblyVersion=${{ steps.ver.outputs.version4 }}
+          -p:FileVersion=${{ steps.ver.outputs.version4 }}
+
+      - name: Package
+        id: pkg
+        run: |
+          set -e
+          V="${{ steps.ver.outputs.version4 }}"
+          VS="${{ steps.ver.outputs.version }}"
+          TS=$(date -u +%Y-%m-%dT%H:%M:%S.0000000Z)
+
+          # Extract this version's section from CHANGELOG.md (## vX.Y.Z ... until next ## )
+          CHANGELOG=$(awk -v ver="## v$VS" '$0 ~ "^"ver"($| )"{f=1;next} /^## /{f=0} f' CHANGELOG.md)
+          if [ -z "$(printf '%s' "$CHANGELOG" | tr -d '[:space:]')" ]; then
+            CHANGELOG="Release v$VS"
+          fi
+          printf '%s\n' "$CHANGELOG" > changelog.txt
+          echo "## Transcode Downloader v$VS" > release_notes.md
+          cat changelog.txt >> release_notes.md
+
+          mkdir -p artifact
+          jq -n --arg v "$V" --arg ts "$TS" --arg cl "$CHANGELOG" '{
+            category: "General",
+            guid: "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
+            name: "Transcode Downloader",
+            description: "Download a server-side transcoded (smaller) version of a movie or episode, or the original, straight from the Jellyfin web UI.",
+            overview: "Quality picker for downloads, powered by the built-in Jellyfin transcoder.",
+            owner: "Mitchell Doedens",
+            targetAbi: "10.11.0.0",
+            framework: "net9.0",
+            version: $v,
+            timestamp: $ts,
+            changelog: $cl
+          }' > publish/meta.json
+
+          cp LICENSE COMMERCIAL.md publish/
+          (cd publish && zip -r "../artifact/transcode-downloader_$V.zip" ./*.dll meta.json LICENSE COMMERCIAL.md)
+          MD5=$(md5sum "artifact/transcode-downloader_$V.zip" | awk '{print $1}')
+          echo "md5=$MD5" >> "$GITHUB_OUTPUT"
+          echo "ts=$TS" >> "$GITHUB_OUTPUT"
+
+      - name: Update manifest.json
+        run: |
+          set -e
+          V="${{ steps.ver.outputs.version4 }}"
+          URL="https://github.com/${{ github.repository }}/releases/download/v${{ steps.ver.outputs.version }}/transcode-downloader_$V.zip"
+          CHANGELOG=$(cat changelog.txt)
+          ENTRY=$(jq -n \
+            --arg v "$V" \
+            --arg ts "${{ steps.pkg.outputs.ts }}" \
+            --arg url "$URL" \
+            --arg md5 "${{ steps.pkg.outputs.md5 }}" \
+            --arg cl "$CHANGELOG" \
+            '{version:$v, changelog:$cl, targetAbi:"10.11.0.0", sourceUrl:$url, checksum:$md5, timestamp:$ts}')
+          jq --argjson entry "$ENTRY" '.[0].versions = ([$entry] + (.[0].versions // []))' manifest.json > manifest.tmp
+          mv manifest.tmp manifest.json
+
+      - name: Commit manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "Update manifest for v${{ steps.ver.outputs.version }}" || echo "nothing to commit"
+          git push origin HEAD:main || echo "push skipped"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          files: artifact/transcode-downloader_*.zip
+          body_path: release_notes.md

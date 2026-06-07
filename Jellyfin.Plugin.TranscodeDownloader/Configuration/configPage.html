@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Transcode Downloader</title>
+</head>
+<body>
+    <div id="TranscodeDownloaderConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
+         data-require="emby-input,emby-button,emby-select,emby-checkbox,emby-textarea">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="TranscodeDownloaderConfigForm">
+                    <h2>Transcode Downloader</h2>
+                    <p class="fieldDescription" style="margin-bottom:1.5em;">
+                        Adds a quality picker to the download action: download the original, or a smaller
+                        server-side transcoded version. Transcoding reuses Jellyfin's own encoder (NVENC/QSV/etc.).
+                    </p>
+
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="VideoCodec">Video codec</label>
+                        <select is="emby-select" id="VideoCodec" name="VideoCodec" class="emby-select-withcolor emby-select">
+                            <option value="h264">H.264 (most compatible)</option>
+                            <option value="hevc">HEVC (smaller, less compatible)</option>
+                        </select>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="AudioBitrate">Audio bitrate (bits/sec)</label>
+                        <input id="AudioBitrate" name="AudioBitrate" type="number" is="emby-input" min="64000" step="16000" />
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MaxAudioChannels">Max audio channels (2 = stereo downmix)</label>
+                        <input id="MaxAudioChannels" name="MaxAudioChannels" type="number" is="emby-input" min="1" max="8" />
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ShowOriginal" name="ShowOriginal" type="checkbox" is="emby-checkbox" />
+                            <span>Offer an "Original" (direct, no transcode) download</span>
+                        </label>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MaxConcurrent">Max concurrent transcodes</label>
+                        <input id="MaxConcurrent" name="MaxConcurrent" type="number" is="emby-input" min="1" max="8" />
+                        <div class="fieldDescription">Changing this takes effect after a Jellyfin restart.</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="OrphanTimeoutSeconds">Orphan timeout (seconds)</label>
+                        <input id="OrphanTimeoutSeconds" name="OrphanTimeoutSeconds" type="number" is="emby-input" min="10" />
+                        <div class="fieldDescription">A transcode is auto-cancelled if its dialog stops polling (closed/abandoned) for this long.</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="CleanupAfterDays">Delete finished files after (days)</label>
+                        <input id="CleanupAfterDays" name="CleanupAfterDays" type="number" is="emby-input" min="0" step="0.5" />
+                        <div class="fieldDescription">Finished transcodes are removed by a periodic cleanup task after this many days.</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="WorkPath">Work folder (optional)</label>
+                        <input id="WorkPath" name="WorkPath" type="text" is="emby-input" />
+                        <div class="fieldDescription">Where transcodes are stored temporarily. Leave empty for the default cache folder.</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="Qualities">Quality presets (JSON)</label>
+                        <textarea id="Qualities" name="Qualities" is="emby-textarea" rows="12" style="font-family:monospace;"></textarea>
+                        <div class="fieldDescription">
+                            One object per offered quality. <code>maxHeight</code> = output height; <code>minSourceWidth</code> = only
+                            offered when the source is at least this wide (prevents upscaling); <code>videoBitrate</code> in bits/sec.
+                        </div>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var TranscodeDownloaderConfig = { pluginUniqueId: 'b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88' };
+
+            document.querySelector('#TranscodeDownloaderConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(TranscodeDownloaderConfig.pluginUniqueId).then(function (config) {
+                    document.querySelector('#VideoCodec').value = config.VideoCodec;
+                    document.querySelector('#AudioBitrate').value = config.AudioBitrate;
+                    document.querySelector('#MaxAudioChannels').value = config.MaxAudioChannels;
+                    document.querySelector('#ShowOriginal').checked = config.ShowOriginal;
+                    document.querySelector('#MaxConcurrent').value = config.MaxConcurrent;
+                    document.querySelector('#OrphanTimeoutSeconds').value = config.OrphanTimeoutSeconds;
+                    document.querySelector('#CleanupAfterDays').value = config.CleanupAfterDays;
+                    document.querySelector('#WorkPath').value = config.WorkPath || '';
+                    var defaultQualities = [
+                        { Label: '480p', MaxHeight: 480, MinSourceWidth: 0, VideoBitrate: 1200000 },
+                        { Label: '720p', MaxHeight: 720, MinSourceWidth: 1152, VideoBitrate: 2500000 },
+                        { Label: '1080p', MaxHeight: 1080, MinSourceWidth: 1728, VideoBitrate: 5000000 },
+                        { Label: '4K', MaxHeight: 2160, MinSourceWidth: 3456, VideoBitrate: 16000000 }
+                    ];
+                    var q = (config.Qualities && config.Qualities.length) ? config.Qualities : defaultQualities;
+                    document.querySelector('#Qualities').value = JSON.stringify(q, null, 2);
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            document.querySelector('#TranscodeDownloaderConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(TranscodeDownloaderConfig.pluginUniqueId).then(function (config) {
+                    config.VideoCodec = document.querySelector('#VideoCodec').value;
+                    config.AudioBitrate = parseInt(document.querySelector('#AudioBitrate').value, 10);
+                    config.MaxAudioChannels = parseInt(document.querySelector('#MaxAudioChannels').value, 10);
+                    config.ShowOriginal = document.querySelector('#ShowOriginal').checked;
+                    config.MaxConcurrent = parseInt(document.querySelector('#MaxConcurrent').value, 10);
+                    config.OrphanTimeoutSeconds = parseInt(document.querySelector('#OrphanTimeoutSeconds').value, 10);
+                    config.CleanupAfterDays = parseFloat(document.querySelector('#CleanupAfterDays').value);
+                    config.WorkPath = document.querySelector('#WorkPath').value;
+                    try {
+                        config.Qualities = JSON.parse(document.querySelector('#Qualities').value);
+                    } catch (err) {
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert('Quality presets: invalid JSON — ' + err.message);
+                        return;
+                    }
+                    ApiClient.updatePluginConfiguration(TranscodeDownloaderConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
