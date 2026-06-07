@@ -7,6 +7,15 @@
     "owner": "Mitchell Doedens",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/icon.png",
-    "versions": []
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "- Initial release.\n- Adds a quality picker to Jellyfin's **Download** action in the web client and the official\n  mobile apps: download the **Original**, or a smaller server-side transcode\n  (**480p / 720p / 1080p / 4K**, configurable).\n- Reuses Jellyfin's own encoder (NVENC / QSV / VAAPI / software) — **no API key required**.\n- Output is a faststart **MP4** with a progress bar, cancel support, proper file names\n  (including `Show SxxExx Title`), and **no upscaling** (qualities above the source are hidden).\n- **Settings page**: video codec, audio bitrate/channels, \"Original\" toggle, max concurrent\n  transcodes, orphan timeout, retention/cleanup days, and quality presets.\n- **Scheduled cleanup** task removes finished transcode files after the configured retention.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.0/transcode-downloader_1.0.0.0.zip",
+        "checksum": "34b77dccba3535475b9a703d78a87af4",
+        "timestamp": "2026-06-07T15:55:35.0000000Z"
+      }
+    ]
   }
 ]
