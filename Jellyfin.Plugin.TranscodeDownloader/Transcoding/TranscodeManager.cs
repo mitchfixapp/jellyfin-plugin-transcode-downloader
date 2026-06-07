@@ -281,15 +281,7 @@ public sealed class TranscodeManager : IDisposable
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            foreach (var arg in new[]
-                     {
-                         "-hide_banner", "-loglevel", "error",
-                         "-i", url,
-                         "-c", "copy",
-                         "-movflags", "+faststart",
-                         "-progress", "pipe:1", "-nostats",
-                         "-y", job.OutputPath
-                     })
+            foreach (var arg in BuildFfmpegArgs(job, url))
             {
                 psi.ArgumentList.Add(arg);
             }
@@ -348,6 +340,124 @@ public sealed class TranscodeManager : IDisposable
         {
             _slots.Release();
         }
+    }
+
+    private List<string> BuildFfmpegArgs(TranscodeJob job, string url)
+    {
+        var args = new List<string> { "-hide_banner", "-loglevel", "error", "-i", url };
+
+        // Collect the source's text subtitle tracks so they can be embedded as selectable (soft)
+        // tracks in the download. An MP4 can only carry text subtitles (mov_text), so image
+        // subtitles such as PGS/VOBSUB are skipped. Embedded text subs are read back from the
+        // original file, external ones from their sidecar files; each is added as its own input.
+        var embedded = new List<MediaStream>();
+        var external = new List<MediaStream>();
+        string? originalPath = null;
+        if (_libraryManager.GetItemById(job.ItemId) is Video video)
+        {
+            originalPath = video.Path;
+            try
+            {
+                foreach (var s in video.GetMediaStreams())
+                {
+                    if (s.Type != MediaStreamType.Subtitle || !s.IsTextSubtitleStream)
+                    {
+                        continue;
+                    }
+
+                    if (s.IsExternal)
+                    {
+                        if (!string.IsNullOrEmpty(s.Path) && File.Exists(s.Path))
+                        {
+                            external.Add(s);
+                        }
+                    }
+                    else
+                    {
+                        embedded.Add(s);
+                    }
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                embedded.Clear();
+                external.Clear();
+            }
+        }
+
+        var hasOriginal = embedded.Count > 0 && !string.IsNullOrEmpty(originalPath) && File.Exists(originalPath);
+        if (hasOriginal)
+        {
+            args.Add("-i");
+            args.Add(originalPath!);
+        }
+
+        var externalInputStart = hasOriginal ? 2 : 1;
+        foreach (var es in external)
+        {
+            args.Add("-i");
+            args.Add(es.Path!);
+        }
+
+        // Video + audio come from the Jellyfin transcode (input 0); subtitles from the original
+        // file (input 1) and/or the external sidecars. Every map is optional (?) so a missing
+        // stream never fails the whole remux.
+        args.Add("-map");
+        args.Add("0:v:0");
+        args.Add("-map");
+        args.Add("0:a?");
+
+        var orderedSubs = new List<MediaStream>();
+        if (hasOriginal)
+        {
+            foreach (var s in embedded)
+            {
+                args.Add("-map");
+                args.Add(string.Format(CultureInfo.InvariantCulture, "1:{0}?", s.Index));
+                orderedSubs.Add(s);
+            }
+        }
+
+        for (var i = 0; i < external.Count; i++)
+        {
+            args.Add("-map");
+            args.Add(string.Format(CultureInfo.InvariantCulture, "{0}:0?", externalInputStart + i));
+            orderedSubs.Add(external[i]);
+        }
+
+        args.Add("-c");
+        args.Add("copy");
+        if (orderedSubs.Count > 0)
+        {
+            args.Add("-c:s");
+            args.Add("mov_text");
+        }
+
+        // Tag each output subtitle track with language/title so the local player can label them.
+        for (var i = 0; i < orderedSubs.Count; i++)
+        {
+            var s = orderedSubs[i];
+            if (!string.IsNullOrWhiteSpace(s.Language))
+            {
+                args.Add(string.Format(CultureInfo.InvariantCulture, "-metadata:s:s:{0}", i));
+                args.Add("language=" + s.Language);
+            }
+
+            if (!string.IsNullOrWhiteSpace(s.Title))
+            {
+                args.Add(string.Format(CultureInfo.InvariantCulture, "-metadata:s:s:{0}", i));
+                args.Add("title=" + s.Title);
+            }
+        }
+
+        args.Add("-movflags");
+        args.Add("+faststart");
+        args.Add("-progress");
+        args.Add("pipe:1");
+        args.Add("-nostats");
+        args.Add("-y");
+        args.Add(job.OutputPath);
+        return args;
     }
 
     private static void ParseProgress(TranscodeJob job, string line)

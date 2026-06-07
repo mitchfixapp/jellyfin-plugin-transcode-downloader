@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.0.4 - 2026-06-07
+- Embed text subtitle tracks in the transcoded download so they can be selected in the local
+  player. Subtitles from the source (both embedded tracks and external sidecar files) are muxed
+  in as soft `mov_text` tracks with their language and title. Image subtitles (PGS / VOBSUB) are
+  skipped because an MP4 cannot carry them as text. Verified on a 480p transcode: the output now
+  contains the English and Dutch subtitle tracks.
+
 ## v1.0.3 - 2026-06-07
 - Fix the "Start download" link not working in the native Jellyfin apps (Android/iOS). Those
   apps run the web client in a WebView that ignores the `<a download>` attribute, and their
