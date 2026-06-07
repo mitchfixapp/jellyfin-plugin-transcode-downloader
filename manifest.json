@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
     "versions": [
       {
+        "version": "1.0.4.0",
+        "changelog": "- Embed text subtitle tracks in the transcoded download so they can be selected in the local\n  player. Subtitles from the source (both embedded tracks and external sidecar files) are muxed\n  in as soft `mov_text` tracks with their language and title. Image subtitles (PGS / VOBSUB) are\n  skipped because an MP4 cannot carry them as text. Verified on a 480p transcode: the output now\n  contains the English and Dutch subtitle tracks.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.0.4/transcode-downloader_1.0.4.0.zip",
+        "checksum": "47afeb9f7d165c2b8b19ccaa0fe6f5b0",
+        "timestamp": "2026-06-07T20:13:27.0000000Z"
+      },
+      {
         "version": "1.0.3.0",
         "changelog": "- Fix the \"Start download\" link not working in the native Jellyfin apps (Android/iOS). Those\n  apps run the web client in a WebView that ignores the `<a download>` attribute, and their\n  NativeShell only re-downloads the original by item id (it cannot reach our transcoded file).\n  The download now routes through `NativeShell.openUrl` on native apps, so the device browser /\n  download manager fetches the file (honouring Content-Disposition and the api_key in the URL);\n  browsers keep the direct `<a download>` path.",
         "targetAbi": "10.11.0.0",
