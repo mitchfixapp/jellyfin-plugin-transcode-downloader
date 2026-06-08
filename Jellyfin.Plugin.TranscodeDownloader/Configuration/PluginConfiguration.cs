@@ -47,7 +47,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public int BulkGraceMinutes { get; set; } = 1440;
 
     /// <summary>Gets or sets how many days a finished transcode file is kept before automatic cleanup.</summary>
-    public double CleanupAfterDays { get; set; } = 1.0;
+    public double CleanupAfterDays { get; set; } = 7.0;
 
     /// <summary>Gets or sets an optional override path for temporary transcode files. Empty = plugin cache folder.</summary>
     public string WorkPath { get; set; } = string.Empty;

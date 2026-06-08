@@ -4,6 +4,9 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0-beta.8 - 2026-06-08
+- The default retention for finished transcode files is now 7 days (was 1 day).
+
 ## v1.1.0-beta.7 - 2026-06-08
 - A running transcode is now never auto-cancelled, and auto-cancellation is off by default. When
   you do turn it on, it only drops jobs that are still queued (not started yet); anything already
