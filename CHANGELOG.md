@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0-beta.3 - 2026-06-08
+- Fix the redesigned settings page styling not loading, so the quality preset table and the
+  prerequisite banner now render at the right size.
+
 ## v1.1.0-beta.2 - 2026-06-08
 - Repeat downloads are served from cache: download the same item and quality again while the
   previous transcode is still cached and it is offered instantly instead of being re-encoded.

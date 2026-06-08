@@ -3,27 +3,27 @@
 <head>
     <meta charset="utf-8">
     <title>Transcode Downloader</title>
-    <style>
-        #TranscodeDownloaderConfigPage .td-banner { display:none; padding:.9em 1em; border-radius:8px; margin:0 0 1.4em; line-height:1.45; gap:.7em; align-items:flex-start; }
-        #TranscodeDownloaderConfigPage .td-banner svg { flex:none; width:22px; height:22px; margin-top:.1em; }
-        #TranscodeDownloaderConfigPage .td-banner code { background:rgba(255,255,255,.12); padding:.05em .35em; border-radius:4px; font-size:.92em; word-break:break-all; }
-        #TranscodeDownloaderConfigPage h3.td-h { margin:1.8em 0 .2em; font-size:1.16em; }
-        #TranscodeDownloaderConfigPage .td-sub { opacity:.6; font-size:.85em; margin:0 0 1em; }
-        #TranscodeDownloaderConfigPage hr.td-div { border:0; border-top:1px solid rgba(255,255,255,.08); margin:1.6em 0 0; }
-        #TranscodeDownloaderConfigPage table.td-presets { width:100%; border-collapse:collapse; margin-top:.4em; }
-        #TranscodeDownloaderConfigPage table.td-presets th { text-align:left; font-weight:600; font-size:.78em; text-transform:uppercase; letter-spacing:.03em; opacity:.6; padding:.2em .5em .5em; }
-        #TranscodeDownloaderConfigPage table.td-presets td { padding:.22em .5em; vertical-align:middle; }
-        #TranscodeDownloaderConfigPage table.td-presets input { width:100%; box-sizing:border-box; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:inherit; border-radius:6px; padding:.55em .6em; font:inherit; }
-        #TranscodeDownloaderConfigPage table.td-presets input:focus { outline:none; border-color:#00a4dc; background:rgba(255,255,255,.09); }
-        #TranscodeDownloaderConfigPage .td-remove { background:none; border:0; color:#ff6b6b; cursor:pointer; font-size:1.4em; line-height:1; padding:.1em .35em; border-radius:6px; }
-        #TranscodeDownloaderConfigPage .td-remove:hover { background:rgba(255,107,107,.14); }
-        #TranscodeDownloaderConfigPage .td-rowbtns { display:flex; gap:.6em; margin-top:.9em; flex-wrap:wrap; }
-        #TranscodeDownloaderConfigPage .td-minor { background:transparent !important; border:1px solid rgba(255,255,255,.22) !important; box-shadow:none !important; }
-    </style>
 </head>
 <body>
     <div id="TranscodeDownloaderConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
          data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <style>
+            #TranscodeDownloaderConfigPage .td-banner { display:none; padding:.9em 1em; border-radius:8px; margin:0 0 1.4em; line-height:1.45; gap:.7em; align-items:flex-start; }
+            #TranscodeDownloaderConfigPage .td-banner svg { flex:none; width:22px; height:22px; margin-top:.1em; }
+            #TranscodeDownloaderConfigPage .td-banner code { background:rgba(255,255,255,.12); padding:.05em .35em; border-radius:4px; font-size:.92em; word-break:break-all; }
+            #TranscodeDownloaderConfigPage h3.td-h { margin:1.8em 0 .2em; font-size:1.16em; }
+            #TranscodeDownloaderConfigPage .td-sub { opacity:.6; font-size:.85em; margin:0 0 1em; }
+            #TranscodeDownloaderConfigPage hr.td-div { border:0; border-top:1px solid rgba(255,255,255,.08); margin:1.6em 0 0; }
+            #TranscodeDownloaderConfigPage table.td-presets { width:100%; border-collapse:collapse; margin-top:.4em; }
+            #TranscodeDownloaderConfigPage table.td-presets th { text-align:left; font-weight:600; font-size:.78em; text-transform:uppercase; letter-spacing:.03em; opacity:.6; padding:.2em .5em .5em; }
+            #TranscodeDownloaderConfigPage table.td-presets td { padding:.22em .5em; vertical-align:middle; }
+            #TranscodeDownloaderConfigPage table.td-presets input { width:100%; box-sizing:border-box; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:inherit; border-radius:6px; padding:.55em .6em; font:inherit; }
+            #TranscodeDownloaderConfigPage table.td-presets input:focus { outline:none; border-color:#00a4dc; background:rgba(255,255,255,.09); }
+            #TranscodeDownloaderConfigPage .td-remove { background:none; border:0; color:#ff6b6b; cursor:pointer; font-size:1.4em; line-height:1; padding:.1em .35em; border-radius:6px; }
+            #TranscodeDownloaderConfigPage .td-remove:hover { background:rgba(255,107,107,.14); }
+            #TranscodeDownloaderConfigPage .td-rowbtns { display:flex; gap:.6em; margin-top:.9em; flex-wrap:wrap; }
+            #TranscodeDownloaderConfigPage .td-minor { background:transparent !important; border:1px solid rgba(255,255,255,.22) !important; box-shadow:none !important; }
+        </style>
         <div data-role="content">
             <div class="content-primary">
                 <form id="TranscodeDownloaderConfigForm">
@@ -199,7 +199,7 @@
                 el.style.background = c.bg;
                 el.style.border = '1px solid ' + c.bd;
                 el.innerHTML =
-                    '<svg viewBox="0 0 24 24" fill="' + c.col + '"><path d="' + c.ic + '"/></svg>' +
+                    '<svg viewBox="0 0 24 24" width="22" height="22" fill="' + c.col + '"><path d="' + c.ic + '"/></svg>' +
                     '<div><div style="font-weight:600;margin-bottom:.15em;color:' + c.col + ';">' + title + '</div>' +
                     '<div style="opacity:.88;">' + body + '</div></div>';
             }
