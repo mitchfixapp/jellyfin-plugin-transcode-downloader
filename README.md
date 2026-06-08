@@ -27,6 +27,26 @@ ready-to-play **MP4**.
 > (Findroid, Streamyfin, the native Android TV app), because Jellyfin has no client-side
 > plugin API — the button is injected into the web UI.
 
+## Screenshots
+
+<table>
+<tr>
+<td width="40%" align="center" valign="top">
+  <img src="docs/download-picker.png" alt="Download quality picker"><br>
+  <sub><b>Pick a size</b> on the existing Download action.</sub>
+</td>
+<td width="60%" align="center" valign="top">
+  <img src="docs/download-all.png" alt="Download all with per-episode progress"><br>
+  <sub><b>Download all</b> a season or series, with a per-episode progress list.</sub>
+</td>
+</tr>
+</table>
+
+<p align="center">
+  <img src="docs/settings.png" width="720" alt="Settings page"><br>
+  <sub>Dashboard settings: a prerequisite check, plus a form for quality presets, codec, concurrency and retention.</sub>
+</p>
+
 ## Features
 
 - 🎚️ **Quality picker** on the existing **Download** action — no duplicate buttons.
