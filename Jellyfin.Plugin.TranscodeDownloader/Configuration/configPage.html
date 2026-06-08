@@ -77,21 +77,21 @@
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">
                             <input id="AutoCancelAbandoned" name="AutoCancelAbandoned" type="checkbox" is="emby-checkbox" />
-                            <span>Auto-cancel abandoned transcodes</span>
+                            <span>Auto-cancel abandoned queued transcodes</span>
                         </label>
-                        <div class="fieldDescription">Cancel a transcode when its download dialog stops responding (e.g. you closed the tab). Turn this off to let every transcode run to completion; you can still stop them with the button under Maintenance.</div>
+                        <div class="fieldDescription">Off by default. A <b>running</b> transcode always finishes and is never auto-cancelled. When on, only transcodes that are still <b>queued</b> (not started yet) are dropped if their dialog stops responding. You can always stop everything under Maintenance.</div>
                     </div>
 
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="OrphanTimeoutSeconds">Single download timeout (seconds)</label>
+                        <label class="inputLabel inputLabelUnfocused" for="OrphanTimeoutSeconds">Single queued timeout (seconds)</label>
                         <input id="OrphanTimeoutSeconds" name="OrphanTimeoutSeconds" type="number" is="emby-input" min="10" />
-                        <div class="fieldDescription">A single transcode is cancelled if its dialog stops polling for this long.</div>
+                        <div class="fieldDescription">How long a single queued transcode waits without its dialog responding before it is dropped. Only applies when auto-cancel is on.</div>
                     </div>
 
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="BulkGraceMinutes">"Download all" grace (minutes)</label>
+                        <label class="inputLabel inputLabelUnfocused" for="BulkGraceMinutes">"Download all" queued grace (minutes)</label>
                         <input id="BulkGraceMinutes" name="BulkGraceMinutes" type="number" is="emby-input" min="1" />
-                        <div class="fieldDescription">How long a batch keeps transcoding without the dialog responding, so a big series finishes even if the tab is in the background or briefly closed. Default 1440 (one day); raise it for hundreds of episodes or software encoding.</div>
+                        <div class="fieldDescription">How long queued batch episodes wait without the dialog responding before they are dropped. Only applies when auto-cancel is on. Default 1440 (one day).</div>
                     </div>
 
                     <div class="inputContainer">

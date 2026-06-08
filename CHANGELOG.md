@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0-beta.7 - 2026-06-08
+- A running transcode is now never auto-cancelled, and auto-cancellation is off by default. When
+  you do turn it on, it only drops jobs that are still queued (not started yet); anything already
+  transcoding always runs to completion.
+
 ## v1.1.0-beta.6 - 2026-06-08
 - The "Download all" batch grace is now configurable (default one day), and there is a switch to
   turn off auto-cancellation entirely, so large batches or slow software encoding are not

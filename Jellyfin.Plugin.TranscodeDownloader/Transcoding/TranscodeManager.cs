@@ -415,8 +415,10 @@ public sealed class TranscodeManager : IDisposable
     {
         try
         {
-            // Master switch: when off, nothing is ever auto-cancelled (transcodes run to completion
-            // or until cancelled manually).
+            // A running transcode is never auto-cancelled: it is doing work the user asked for, so
+            // it always runs to completion (only the user, via Cancel/Close or "Stop all", stops it).
+            // The reaper only drops jobs that are still QUEUED (nothing transcoded yet, so no work is
+            // lost), and only when the admin has opted in.
             if (!Config.AutoCancelAbandoned)
             {
                 return;
@@ -425,18 +427,17 @@ public sealed class TranscodeManager : IDisposable
             var single = TimeSpan.FromSeconds(Math.Max(10, Config.OrphanTimeoutSeconds));
 
             // A "Download all" batch only runs MaxConcurrent at a time, so a big set (a whole show,
-            // or slow software encoding) can take hours. Browsers also throttle a backgrounded tab's
-            // timers, which would otherwise let this reaper cancel the still-queued episodes. Give
-            // batch jobs a generous, configurable grace (default one day); they are still cleaned up
-            // if the dialog is truly gone for that long, and the Close button cancels immediately.
+            // or slow software encoding) can keep episodes queued for hours. Browsers also throttle a
+            // backgrounded tab's timers, which would otherwise let this reaper drop the queued
+            // episodes. Give batch jobs a generous, configurable grace (default one day).
             var bulk = TimeSpan.FromMinutes(Math.Max(1, Config.BulkGraceMinutes));
             var now = DateTime.UtcNow;
             foreach (var job in _jobs.Values)
             {
                 var limit = job.IsBulk ? bulk : single;
-                if (job.State is JobState.Queued or JobState.Running && now - job.LastSeenUtc > limit)
+                if (job.State == JobState.Queued && now - job.LastSeenUtc > limit)
                 {
-                    _logger.LogInformation("[TranscodeDownloader] orphan job {Id} ({File}) cancelled", job.Id, job.FileName);
+                    _logger.LogInformation("[TranscodeDownloader] queued job {Id} ({File}) dropped (abandoned)", job.Id, job.FileName);
                     CancelJob(job);
                 }
             }

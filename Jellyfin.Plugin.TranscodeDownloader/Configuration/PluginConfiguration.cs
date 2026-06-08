@@ -30,10 +30,11 @@ public class PluginConfiguration : BasePluginConfiguration
     public int MaxConcurrent { get; set; } = 2;
 
     /// <summary>
-    /// Gets or sets a value indicating whether a transcode whose dialog stopped polling is
-    /// auto-cancelled. Turn this off to let every transcode run to completion (cancel manually).
+    /// Gets or sets a value indicating whether transcodes that are still queued are auto-cancelled
+    /// when their dialog stops polling. A running transcode is never auto-cancelled regardless of
+    /// this setting. Off by default, so nothing is cancelled automatically.
     /// </summary>
-    public bool AutoCancelAbandoned { get; set; } = true;
+    public bool AutoCancelAbandoned { get; set; }
 
     /// <summary>Gets or sets how long (seconds) a single job may go without a status poll before it is auto-cancelled.</summary>
     public int OrphanTimeoutSeconds { get; set; } = 45;
