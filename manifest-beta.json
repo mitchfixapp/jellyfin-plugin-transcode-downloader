@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.1.0.8",
+        "changelog": "- The default retention for finished transcode files is now 7 days (was 1 day).",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.8/transcode-downloader_1.1.0.8.zip",
+        "checksum": "9c18c020a89cc49eb59981c8fcce16c6",
+        "timestamp": "2026-06-08T19:25:02.0000000Z"
+      },
+      {
         "version": "1.1.0.7",
         "changelog": "- A running transcode is now never auto-cancelled, and auto-cancellation is off by default. When\n  you do turn it on, it only drops jobs that are still queued (not started yet); anything already\n  transcoding always runs to completion.",
         "targetAbi": "10.11.0.0",
