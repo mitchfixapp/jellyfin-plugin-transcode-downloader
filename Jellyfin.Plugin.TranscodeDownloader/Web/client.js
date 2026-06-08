@@ -279,6 +279,12 @@
         '<div style="font-size:1.1em;font-weight:600;margin-bottom:.2em;">Download all</div>' +
         '<div style="opacity:.6;font-size:.85em;margin-bottom:1em;">' + o.children.length + ' episodes. Pick a quality for the whole set.</div>';
 
+      if (o.showOriginal) {
+        var orig = optionButton("Original", o.children.length + " episodes, full files — no transcode");
+        orig.addEventListener("click", function () { startAllOriginals(o.children, tok, ov, c); });
+        c.appendChild(orig);
+      }
+
       (o.presets || []).forEach(function (p) {
         var b = optionButton(p.label, o.children.length + " episodes, transcoded");
         b.addEventListener("click", function () { startAllJobs(o.children, p.height, ov, c); });
@@ -294,6 +300,54 @@
       ov.appendChild(c);
       document.body.appendChild(ov);
     });
+  }
+
+  // "Download all" -> Original: every episode's original file, no transcode. Each row gets a
+  // download icon; in a browser a single button grabs them all (staggered). On the native apps
+  // the bulk button is hidden because each openUrl switches apps, so the per-episode icons are used.
+  function startAllOriginals(children, tok, ov, c) {
+    c.innerHTML =
+      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;">Download all — Original</div>' +
+      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">The full original file of each episode, no transcode. Use an icon per episode, or grab them all.</div>';
+
+    var list = document.createElement("div");
+    list.style.cssText = "max-height:48vh;overflow-y:auto;padding-right:12px;margin-bottom:.7em;";
+    c.appendChild(list);
+
+    var urls = [];
+    children.forEach(function (ch) {
+      var url = base() + "/Items/" + ch.id + "/Download?api_key=" + encodeURIComponent(tok);
+      urls.push(url);
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.45em 0;border-top:1px solid rgba(255,255,255,.07);font-size:.82em;";
+      var name = document.createElement("span");
+      name.textContent = ch.name;
+      name.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+      row.appendChild(name);
+      list.appendChild(row);
+      setStatus(row, statusEl(ICON_DOWNLOAD, "Download original", ACCENT, function () { triggerDownload(url); }));
+    });
+
+    var footer = document.createElement("div");
+    footer.style.cssText = "display:flex;gap:.5em;";
+    if (!isNativeApp()) {
+      var allBtn = document.createElement("button");
+      allBtn.type = "button";
+      allBtn.textContent = "Download all (" + urls.length + ")";
+      allBtn.style.cssText = "flex:1;background:" + ACCENT + ";color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;font-weight:600;";
+      allBtn.addEventListener("click", function () {
+        urls.forEach(function (u, i) { setTimeout(function () { triggerDownload(u); }, i * 800); });
+      });
+      footer.appendChild(allBtn);
+    }
+
+    var close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "Close";
+    close.style.cssText = "flex:none;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
+    close.addEventListener("click", function () { if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
+    footer.appendChild(close);
+    c.appendChild(footer);
   }
 
   function statusEl(svgPath, title, color, onClick) {

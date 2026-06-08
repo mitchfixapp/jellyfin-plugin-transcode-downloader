@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0-beta.4 - 2026-06-08
+- "Download all": add the **Original** option (it was only on single items), so you can grab every
+  episode's original file, with no transcode, for a whole season or series.
+
 ## v1.1.0-beta.3 - 2026-06-08
 - Fix the redesigned settings page styling not loading, so the quality preset table and the
   prerequisite banner now render at the right size.
