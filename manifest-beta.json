@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.1.0.3",
+        "changelog": "- Fix the redesigned settings page styling not loading, so the quality preset table and the\n  prerequisite banner now render at the right size.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.3/transcode-downloader_1.1.0.3.zip",
+        "checksum": "b013316809de7822599772574e201e9d",
+        "timestamp": "2026-06-08T12:03:20.0000000Z"
+      },
+      {
         "version": "1.1.0.2",
         "changelog": "- Repeat downloads are served from cache: download the same item and quality again while the\n  previous transcode is still cached and it is offered instantly instead of being re-encoded.\n- Redesigned settings page: edit the quality presets in a simple table instead of raw JSON, and a\n  banner tells you when the required File Transformation plugin is missing or needs a restart.",
         "targetAbi": "10.11.0.0",
