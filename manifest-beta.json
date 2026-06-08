@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.1.0.2",
+        "changelog": "- Repeat downloads are served from cache: download the same item and quality again while the\n  previous transcode is still cached and it is offered instantly instead of being re-encoded.\n- Redesigned settings page: edit the quality presets in a simple table instead of raw JSON, and a\n  banner tells you when the required File Transformation plugin is missing or needs a restart.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.2/transcode-downloader_1.1.0.2.zip",
+        "checksum": "811463d34aee955ac61714ed2fdae1cf",
+        "timestamp": "2026-06-08T11:39:54.0000000Z"
+      },
+      {
         "version": "1.1.0.1",
         "changelog": "- \"Download all\": the bulk button now unlocks only once **every** episode has transcoded\n  successfully. If an episode fails, a **retry** button appears next to it to re-run just that\n  one, and the bulk button stays locked until it succeeds.\n- \"Download all\": per-episode quality fallback — when you pick a quality that is higher than an\n  episode's source, that episode now downloads at the best quality its source allows instead of\n  being skipped, so a mixed-resolution season still completes.",
         "targetAbi": "10.11.0.0",
