@@ -110,8 +110,8 @@ jobs:
       - name: Commit manifest
         run: |
           MANIFEST="${{ steps.ver.outputs.manifest }}"
-          git config user.name "Mitchell Doedens"
-          git config user.email "mdoedens@users.noreply.github.com"
+          git config user.name "MitchFix.App"
+          git config user.email "noreply@mitchfix.app"
           git add "$MANIFEST"
           git commit -m "Update $MANIFEST for ${{ github.ref_name }}" || echo "nothing to commit"
           git push origin HEAD:${{ steps.ver.outputs.branch }} || echo "push skipped"
