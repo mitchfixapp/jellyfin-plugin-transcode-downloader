@@ -265,6 +265,83 @@ public sealed class TranscodeManager : IDisposable
         }
     }
 
+    /// <summary>Cancels every active (queued or running) job.</summary>
+    /// <returns>The number of jobs cancelled.</returns>
+    public int CancelAll()
+    {
+        var count = 0;
+        foreach (var job in _jobs.Values)
+        {
+            if (job.State is JobState.Queued or JobState.Running)
+            {
+                CancelJob(job);
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Deletes cached output files that no active job is using and forgets finished jobs. Running
+    /// jobs and their in-progress temp files are left untouched.
+    /// </summary>
+    /// <param name="bytesFreed">Set to the total number of bytes deleted.</param>
+    /// <returns>The number of files deleted.</returns>
+    public int ClearCache(out long bytesFreed)
+    {
+        bytesFreed = 0;
+        var files = 0;
+
+        foreach (var pair in _jobs.ToArray())
+        {
+            if (pair.Value.State is JobState.Done or JobState.Error or JobState.Cancelled)
+            {
+                _jobs.TryRemove(pair.Key, out _);
+            }
+        }
+
+        try
+        {
+            if (!Directory.Exists(WorkDir))
+            {
+                return files;
+            }
+
+            var active = new HashSet<string>(
+                _jobs.Values
+                    .Where(j => j.State is JobState.Queued or JobState.Running)
+                    .Select(j => Path.GetFullPath(j.OutputPath)),
+                StringComparer.Ordinal);
+
+            foreach (var file in Directory.EnumerateFiles(WorkDir, "*.mp4"))
+            {
+                if (file.EndsWith(".part.mp4", StringComparison.Ordinal) || active.Contains(Path.GetFullPath(file)))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var length = new FileInfo(file).Length;
+                    File.Delete(file);
+                    bytesFreed += length;
+                    files++;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // in use or already gone; skip
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "[TranscodeDownloader] clear cache skipped");
+        }
+
+        return files;
+    }
+
     /// <summary>Removes finished jobs (and their files) older than the configured retention.</summary>
     public void CleanupExpired()
     {
@@ -338,14 +415,21 @@ public sealed class TranscodeManager : IDisposable
     {
         try
         {
+            // Master switch: when off, nothing is ever auto-cancelled (transcodes run to completion
+            // or until cancelled manually).
+            if (!Config.AutoCancelAbandoned)
+            {
+                return;
+            }
+
             var single = TimeSpan.FromSeconds(Math.Max(10, Config.OrphanTimeoutSeconds));
 
-            // A "Download all" batch only runs MaxConcurrent at a time, so the whole set can take
-            // many minutes. Browsers throttle a backgrounded tab's timers to roughly once a minute,
-            // which would otherwise let this reaper cancel the still-queued episodes. Give batch jobs
-            // a much longer grace; they are still cleaned up if the dialog is truly gone, and the
-            // dialog's Close button cancels them immediately.
-            var bulk = TimeSpan.FromSeconds(Math.Max(600, Config.OrphanTimeoutSeconds * 6));
+            // A "Download all" batch only runs MaxConcurrent at a time, so a big set (a whole show,
+            // or slow software encoding) can take hours. Browsers also throttle a backgrounded tab's
+            // timers, which would otherwise let this reaper cancel the still-queued episodes. Give
+            // batch jobs a generous, configurable grace (default one day); they are still cleaned up
+            // if the dialog is truly gone for that long, and the Close button cancels immediately.
+            var bulk = TimeSpan.FromMinutes(Math.Max(1, Config.BulkGraceMinutes));
             var now = DateTime.UtcNow;
             foreach (var job in _jobs.Values)
             {

@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0-beta.6 - 2026-06-08
+- The "Download all" batch grace is now configurable (default one day), and there is a switch to
+  turn off auto-cancellation entirely, so large batches or slow software encoding are not
+  interrupted when you look away.
+- Settings: add a "Stop all transcodes now" button and a "Clear cached files now" button.
+
 ## v1.1.0-beta.5 - 2026-06-08
 - Fix "Download all" stopping after a few episodes: a backgrounded browser tab no longer causes
   the remaining episodes in a batch to be cancelled, so the whole set finishes.

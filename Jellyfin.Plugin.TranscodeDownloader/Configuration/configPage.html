@@ -74,10 +74,24 @@
                         <div class="fieldDescription">A "Download all" batch never runs more than this at once. Takes effect after a Jellyfin restart.</div>
                     </div>
 
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="AutoCancelAbandoned" name="AutoCancelAbandoned" type="checkbox" is="emby-checkbox" />
+                            <span>Auto-cancel abandoned transcodes</span>
+                        </label>
+                        <div class="fieldDescription">Cancel a transcode when its download dialog stops responding (e.g. you closed the tab). Turn this off to let every transcode run to completion; you can still stop them with the button under Maintenance.</div>
+                    </div>
+
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="OrphanTimeoutSeconds">Orphan timeout (seconds)</label>
+                        <label class="inputLabel inputLabelUnfocused" for="OrphanTimeoutSeconds">Single download timeout (seconds)</label>
                         <input id="OrphanTimeoutSeconds" name="OrphanTimeoutSeconds" type="number" is="emby-input" min="10" />
-                        <div class="fieldDescription">A transcode is auto-cancelled if its dialog stops polling (closed or abandoned) for this long.</div>
+                        <div class="fieldDescription">A single transcode is cancelled if its dialog stops polling for this long.</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="BulkGraceMinutes">"Download all" grace (minutes)</label>
+                        <input id="BulkGraceMinutes" name="BulkGraceMinutes" type="number" is="emby-input" min="1" />
+                        <div class="fieldDescription">How long a batch keeps transcoding without the dialog responding, so a big series finishes even if the tab is in the background or briefly closed. Default 1440 (one day); raise it for hundreds of episodes or software encoding.</div>
                     </div>
 
                     <div class="inputContainer">
@@ -121,6 +135,20 @@
                             <span>Reset to defaults</span>
                         </button>
                     </div>
+
+                    <hr class="td-div">
+                    <h3 class="td-h">Maintenance</h3>
+                    <p class="td-sub">Immediate actions, no Save needed.</p>
+
+                    <div class="td-rowbtns">
+                        <button is="emby-button" type="button" id="cancelAll" class="raised td-minor emby-button">
+                            <span>Stop all transcodes now</span>
+                        </button>
+                        <button is="emby-button" type="button" id="clearCache" class="raised td-minor emby-button">
+                            <span>Clear cached files now</span>
+                        </button>
+                    </div>
+                    <div id="maintResult" class="fieldDescription" style="margin-top:.6em;min-height:1.2em;"></div>
 
                     <div style="margin-top:2em;">
                         <button is="emby-button" type="submit" class="raised button-submit block emby-button">
@@ -235,6 +263,21 @@
             document.querySelector('#addPreset').addEventListener('click', function () { tdAddPresetRow(); });
             document.querySelector('#resetPresets').addEventListener('click', function () { tdSetPresets(TD_DEFAULT_PRESETS); });
 
+            function tdMaint(action, busy, build) {
+                var el = document.querySelector('#maintResult');
+                el.textContent = busy + '…';
+                ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('TranscodeDownloader/' + action), dataType: 'json' })
+                    .then(function (res) { el.textContent = build(res || {}); }, function () { el.textContent = busy + ' failed.'; });
+            }
+            document.querySelector('#cancelAll').addEventListener('click', function () {
+                if (!confirm('Stop all running and queued transcodes now?')) { return; }
+                tdMaint('CancelAll', 'Stopping', function (r) { return 'Stopped ' + (r.cancelled || 0) + ' transcode(s).'; });
+            });
+            document.querySelector('#clearCache').addEventListener('click', function () {
+                if (!confirm('Delete all cached transcode files that are not in use?')) { return; }
+                tdMaint('ClearCache', 'Clearing', function (r) { return 'Deleted ' + (r.files || 0) + ' file(s), freed ' + ((r.bytes || 0) / 1048576).toFixed(1) + ' MB.'; });
+            });
+
             document.querySelector('#TranscodeDownloaderConfigPage').addEventListener('pageshow', function () {
                 Dashboard.showLoadingMsg();
                 tdCheckPrerequisites();
@@ -244,7 +287,9 @@
                     document.querySelector('#MaxAudioChannels').value = config.MaxAudioChannels;
                     document.querySelector('#ShowOriginal').checked = config.ShowOriginal;
                     document.querySelector('#MaxConcurrent').value = config.MaxConcurrent;
+                    document.querySelector('#AutoCancelAbandoned').checked = config.AutoCancelAbandoned;
                     document.querySelector('#OrphanTimeoutSeconds').value = config.OrphanTimeoutSeconds;
+                    document.querySelector('#BulkGraceMinutes').value = config.BulkGraceMinutes;
                     document.querySelector('#CleanupAfterDays').value = config.CleanupAfterDays;
                     document.querySelector('#WorkPath').value = config.WorkPath || '';
                     tdSetPresets(config.Qualities);
@@ -261,7 +306,9 @@
                     config.MaxAudioChannels = parseInt(document.querySelector('#MaxAudioChannels').value, 10);
                     config.ShowOriginal = document.querySelector('#ShowOriginal').checked;
                     config.MaxConcurrent = parseInt(document.querySelector('#MaxConcurrent').value, 10);
+                    config.AutoCancelAbandoned = document.querySelector('#AutoCancelAbandoned').checked;
                     config.OrphanTimeoutSeconds = parseInt(document.querySelector('#OrphanTimeoutSeconds').value, 10);
+                    config.BulkGraceMinutes = parseInt(document.querySelector('#BulkGraceMinutes').value, 10);
                     config.CleanupAfterDays = parseFloat(document.querySelector('#CleanupAfterDays').value);
                     config.WorkPath = document.querySelector('#WorkPath').value;
                     config.Qualities = tdReadPresets();

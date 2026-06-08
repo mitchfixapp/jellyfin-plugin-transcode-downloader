@@ -127,6 +127,25 @@ public class TranscodeDownloaderController : ControllerBase
         return Ok(new { state = "cancelled" });
     }
 
+    /// <summary>Cancels every active transcode (admin maintenance action).</summary>
+    /// <returns>The number of jobs cancelled.</returns>
+    [HttpPost("CancelAll")]
+    [Authorize(Policy = "RequiresElevation")]
+    public ActionResult CancelAllJobs()
+    {
+        return Ok(new { cancelled = _manager.CancelAll() });
+    }
+
+    /// <summary>Deletes cached transcode files that are not in use (admin maintenance action).</summary>
+    /// <returns>The number of files deleted and bytes freed.</returns>
+    [HttpPost("ClearCache")]
+    [Authorize(Policy = "RequiresElevation")]
+    public ActionResult ClearCache()
+    {
+        var files = _manager.ClearCache(out var bytes);
+        return Ok(new { files, bytes });
+    }
+
     /// <summary>Downloads a finished transcode file.</summary>
     /// <param name="id">Job id.</param>
     /// <returns>The file.</returns>

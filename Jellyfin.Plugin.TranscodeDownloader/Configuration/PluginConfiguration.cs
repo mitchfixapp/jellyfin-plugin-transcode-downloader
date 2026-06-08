@@ -29,8 +29,21 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets the maximum number of concurrent transcodes.</summary>
     public int MaxConcurrent { get; set; } = 2;
 
-    /// <summary>Gets or sets how long (seconds) a job may go without a status poll before it is auto-cancelled.</summary>
+    /// <summary>
+    /// Gets or sets a value indicating whether a transcode whose dialog stopped polling is
+    /// auto-cancelled. Turn this off to let every transcode run to completion (cancel manually).
+    /// </summary>
+    public bool AutoCancelAbandoned { get; set; } = true;
+
+    /// <summary>Gets or sets how long (seconds) a single job may go without a status poll before it is auto-cancelled.</summary>
     public int OrphanTimeoutSeconds { get; set; } = 45;
+
+    /// <summary>
+    /// Gets or sets how long (minutes) a "Download all" batch job may go without a status poll
+    /// before it is auto-cancelled. Generous by default so a big batch keeps going if the browser
+    /// tab is backgrounded or briefly closed.
+    /// </summary>
+    public int BulkGraceMinutes { get; set; } = 1440;
 
     /// <summary>Gets or sets how many days a finished transcode file is kept before automatic cleanup.</summary>
     public double CleanupAfterDays { get; set; } = 1.0;
