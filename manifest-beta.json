@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.1.0.9",
+        "changelog": "- Settings: move the \"Offer Original\" option down to the Quality presets section, since it is one\n  of the download options offered alongside the transcode qualities.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.9/transcode-downloader_1.1.0.9.zip",
+        "checksum": "a06c6a1c36124e5be41f0f920f5754ed",
+        "timestamp": "2026-06-08T19:27:36.0000000Z"
+      },
+      {
         "version": "1.1.0.8",
         "changelog": "- The default retention for finished transcode files is now 7 days (was 1 day).",
         "targetAbi": "10.11.0.0",
