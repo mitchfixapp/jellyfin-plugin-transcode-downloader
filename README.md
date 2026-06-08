@@ -53,14 +53,18 @@ ready-to-play **MP4**.
 - 📦 **Original** option = Jellyfin's normal direct download (no transcode).
 - 🎬 Server-side transcode to a **faststart MP4** (seekable, correct duration, proper
   filenames including `Show SxxExx Title`).
-- 📚 **Download all** — grab a whole **season or series** in one go, with a per-episode
-  progress list and a download link for each finished episode.
+- 💾 **Cache reuse** — downloading the same item and quality again is served instantly from the
+  last transcode instead of re-encoding.
+- 📚 **Download all** — grab a whole **season or series** in one go (transcoded, or the
+  **Original** files), with a per-episode progress list; the bulk button unlocks once every
+  episode is ready.
 - 💬 **Subtitles included** — text subtitle tracks (embedded and external `.srt`) are muxed
   into the download as selectable soft tracks, so you can pick them in your local player.
 - 🚫 **No upscaling** — qualities above the source resolution are hidden automatically.
 - ⏳ **Progress bar + cancel** (cancelling stops ffmpeg immediately and frees the slot).
 - ♻️ **Auto-retry** on a transient server transcode hiccup, so big batches don't lose an episode.
-- ⚙️ **Configurable** presets, bitrates, codec, concurrency, retention — from the dashboard.
+- ⚙️ **Configurable** presets, bitrates, codec, concurrency and retention from the dashboard,
+  with maintenance buttons to **stop all transcodes** or **clear the cache**.
 - 🔑 **No API key needed** — the plugin runs inside Jellyfin and uses your session.
 
 ## How to use
