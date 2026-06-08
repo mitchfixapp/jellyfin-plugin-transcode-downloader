@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0-beta.2 - 2026-06-08
+- Repeat downloads are served from cache: download the same item and quality again while the
+  previous transcode is still cached and it is offered instantly instead of being re-encoded.
+- Redesigned settings page: edit the quality presets in a simple table instead of raw JSON, and a
+  banner tells you when the required File Transformation plugin is missing or needs a restart.
+
 ## v1.1.0-beta.1 - 2026-06-08
 - "Download all": the bulk button now unlocks only once **every** episode has transcoded
   successfully. If an episode fails, a **retry** button appears next to it to re-run just that

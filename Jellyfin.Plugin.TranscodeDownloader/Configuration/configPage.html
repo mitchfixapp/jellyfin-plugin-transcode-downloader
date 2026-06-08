@@ -3,24 +3,46 @@
 <head>
     <meta charset="utf-8">
     <title>Transcode Downloader</title>
+    <style>
+        #TranscodeDownloaderConfigPage .td-banner { display:none; padding:.9em 1em; border-radius:8px; margin:0 0 1.4em; line-height:1.45; gap:.7em; align-items:flex-start; }
+        #TranscodeDownloaderConfigPage .td-banner svg { flex:none; width:22px; height:22px; margin-top:.1em; }
+        #TranscodeDownloaderConfigPage .td-banner code { background:rgba(255,255,255,.12); padding:.05em .35em; border-radius:4px; font-size:.92em; word-break:break-all; }
+        #TranscodeDownloaderConfigPage h3.td-h { margin:1.8em 0 .2em; font-size:1.16em; }
+        #TranscodeDownloaderConfigPage .td-sub { opacity:.6; font-size:.85em; margin:0 0 1em; }
+        #TranscodeDownloaderConfigPage hr.td-div { border:0; border-top:1px solid rgba(255,255,255,.08); margin:1.6em 0 0; }
+        #TranscodeDownloaderConfigPage table.td-presets { width:100%; border-collapse:collapse; margin-top:.4em; }
+        #TranscodeDownloaderConfigPage table.td-presets th { text-align:left; font-weight:600; font-size:.78em; text-transform:uppercase; letter-spacing:.03em; opacity:.6; padding:.2em .5em .5em; }
+        #TranscodeDownloaderConfigPage table.td-presets td { padding:.22em .5em; vertical-align:middle; }
+        #TranscodeDownloaderConfigPage table.td-presets input { width:100%; box-sizing:border-box; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:inherit; border-radius:6px; padding:.55em .6em; font:inherit; }
+        #TranscodeDownloaderConfigPage table.td-presets input:focus { outline:none; border-color:#00a4dc; background:rgba(255,255,255,.09); }
+        #TranscodeDownloaderConfigPage .td-remove { background:none; border:0; color:#ff6b6b; cursor:pointer; font-size:1.4em; line-height:1; padding:.1em .35em; border-radius:6px; }
+        #TranscodeDownloaderConfigPage .td-remove:hover { background:rgba(255,107,107,.14); }
+        #TranscodeDownloaderConfigPage .td-rowbtns { display:flex; gap:.6em; margin-top:.9em; flex-wrap:wrap; }
+        #TranscodeDownloaderConfigPage .td-minor { background:transparent !important; border:1px solid rgba(255,255,255,.22) !important; box-shadow:none !important; }
+    </style>
 </head>
 <body>
     <div id="TranscodeDownloaderConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
-         data-require="emby-input,emby-button,emby-select,emby-checkbox,emby-textarea">
+         data-require="emby-input,emby-button,emby-select,emby-checkbox">
         <div data-role="content">
             <div class="content-primary">
                 <form id="TranscodeDownloaderConfigForm">
-                    <h2>Transcode Downloader</h2>
-                    <p class="fieldDescription" style="margin-bottom:1.5em;">
-                        Adds a quality picker to the download action: download the original, or a smaller
-                        server-side transcoded version. Transcoding reuses Jellyfin's own encoder (NVENC/QSV/etc.).
+                    <h2 style="margin-bottom:.2em;">Transcode Downloader</h2>
+                    <p class="fieldDescription" style="margin-bottom:1.2em;">
+                        Adds a quality picker to the download action: grab the original, or a smaller
+                        server-side transcode, made with Jellyfin's own encoder (NVENC / QSV / VAAPI / software).
                     </p>
+
+                    <div id="prereqBanner" class="td-banner"></div>
+
+                    <h3 class="td-h">Output</h3>
+                    <p class="td-sub">How the transcoded file is encoded.</p>
 
                     <div class="selectContainer">
                         <label class="selectLabel" for="VideoCodec">Video codec</label>
                         <select is="emby-select" id="VideoCodec" name="VideoCodec" class="emby-select-withcolor emby-select">
                             <option value="h264">H.264 (most compatible)</option>
-                            <option value="hevc">HEVC (smaller, less compatible)</option>
+                            <option value="hevc">HEVC (smaller files, less compatible)</option>
                         </select>
                     </div>
 
@@ -30,8 +52,9 @@
                     </div>
 
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MaxAudioChannels">Max audio channels (2 = stereo downmix)</label>
+                        <label class="inputLabel inputLabelUnfocused" for="MaxAudioChannels">Max audio channels</label>
                         <input id="MaxAudioChannels" name="MaxAudioChannels" type="number" is="emby-input" min="1" max="8" />
+                        <div class="fieldDescription">2 = stereo downmix, ideal for phones and tablets.</div>
                     </div>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -41,22 +64,26 @@
                         </label>
                     </div>
 
+                    <hr class="td-div">
+                    <h3 class="td-h">Performance &amp; cleanup</h3>
+                    <p class="td-sub">How many transcodes run at once and how long finished files are kept.</p>
+
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="MaxConcurrent">Max concurrent transcodes</label>
                         <input id="MaxConcurrent" name="MaxConcurrent" type="number" is="emby-input" min="1" max="8" />
-                        <div class="fieldDescription">Changing this takes effect after a Jellyfin restart.</div>
+                        <div class="fieldDescription">A "Download all" batch never runs more than this at once. Takes effect after a Jellyfin restart.</div>
                     </div>
 
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="OrphanTimeoutSeconds">Orphan timeout (seconds)</label>
                         <input id="OrphanTimeoutSeconds" name="OrphanTimeoutSeconds" type="number" is="emby-input" min="10" />
-                        <div class="fieldDescription">A transcode is auto-cancelled if its dialog stops polling (closed/abandoned) for this long.</div>
+                        <div class="fieldDescription">A transcode is auto-cancelled if its dialog stops polling (closed or abandoned) for this long.</div>
                     </div>
 
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="CleanupAfterDays">Delete finished files after (days)</label>
+                        <label class="inputLabel inputLabelUnfocused" for="CleanupAfterDays">Keep finished files for (days)</label>
                         <input id="CleanupAfterDays" name="CleanupAfterDays" type="number" is="emby-input" min="0" step="0.5" />
-                        <div class="fieldDescription">Finished transcodes are removed by a periodic cleanup task after this many days.</div>
+                        <div class="fieldDescription">A finished transcode stays cached this long, so a repeat download is served instantly instead of re-encoding. A cleanup task then removes it.</div>
                     </div>
 
                     <div class="inputContainer">
@@ -65,16 +92,37 @@
                         <div class="fieldDescription">Where transcodes are stored temporarily. Leave empty for the default cache folder.</div>
                     </div>
 
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="Qualities">Quality presets (JSON)</label>
-                        <textarea id="Qualities" name="Qualities" is="emby-textarea" rows="12" style="font-family:monospace;"></textarea>
-                        <div class="fieldDescription">
-                            One object per offered quality. <code>maxHeight</code> = output height; <code>minSourceWidth</code> = only
-                            offered when the source is at least this wide (prevents upscaling); <code>videoBitrate</code> in bits/sec.
-                        </div>
+                    <hr class="td-div">
+                    <h3 class="td-h">Quality presets</h3>
+                    <p class="td-sub">
+                        The download options offered to users. <b>Min. source width</b> hides a quality when the
+                        source is narrower than this, which prevents upscaling (e.g. a 1080p source won't show 4K).
+                        Leave it 0 to always offer the quality.
+                    </p>
+
+                    <table class="td-presets">
+                        <thead>
+                            <tr>
+                                <th style="width:26%;">Label</th>
+                                <th style="width:20%;">Max height (px)</th>
+                                <th style="width:26%;">Min. source width (px)</th>
+                                <th style="width:18%;">Bitrate (Mbps)</th>
+                                <th style="width:10%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="presetRows"></tbody>
+                    </table>
+
+                    <div class="td-rowbtns">
+                        <button is="emby-button" type="button" id="addPreset" class="raised td-minor emby-button">
+                            <span>+ Add quality</span>
+                        </button>
+                        <button is="emby-button" type="button" id="resetPresets" class="raised td-minor emby-button">
+                            <span>Reset to defaults</span>
+                        </button>
                     </div>
 
-                    <div>
+                    <div style="margin-top:2em;">
                         <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                             <span>Save</span>
                         </button>
@@ -86,8 +134,110 @@
         <script type="text/javascript">
             var TranscodeDownloaderConfig = { pluginUniqueId: 'b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88' };
 
+            var TD_DEFAULT_PRESETS = [
+                { Label: '480p', MaxHeight: 480, MinSourceWidth: 0, VideoBitrate: 1200000 },
+                { Label: '720p', MaxHeight: 720, MinSourceWidth: 1152, VideoBitrate: 2500000 },
+                { Label: '1080p', MaxHeight: 1080, MinSourceWidth: 1728, VideoBitrate: 5000000 },
+                { Label: '4K', MaxHeight: 2160, MinSourceWidth: 3456, VideoBitrate: 16000000 }
+            ];
+
+            function tdMbps(bits) { return Math.round((bits / 1000000) * 100) / 100; }
+
+            function tdAddPresetRow(p) {
+                p = p || { Label: '', MaxHeight: '', MinSourceWidth: 0, VideoBitrate: 0 };
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td><input class="p-label" type="text" placeholder="720p"></td>' +
+                    '<td><input class="p-height" type="number" min="120" step="1" placeholder="720"></td>' +
+                    '<td><input class="p-minwidth" type="number" min="0" step="1" placeholder="0"></td>' +
+                    '<td><input class="p-mbps" type="number" min="0" step="0.1" placeholder="2.5"></td>' +
+                    '<td style="text-align:center;"><button type="button" class="td-remove" title="Remove">×</button></td>';
+                tr.querySelector('.p-label').value = p.Label || '';
+                tr.querySelector('.p-height').value = p.MaxHeight || '';
+                tr.querySelector('.p-minwidth').value = (p.MinSourceWidth != null ? p.MinSourceWidth : 0);
+                tr.querySelector('.p-mbps').value = p.VideoBitrate ? tdMbps(p.VideoBitrate) : '';
+                tr.querySelector('.td-remove').addEventListener('click', function () {
+                    if (tr.parentNode) { tr.parentNode.removeChild(tr); }
+                });
+                document.querySelector('#presetRows').appendChild(tr);
+            }
+
+            function tdSetPresets(list) {
+                document.querySelector('#presetRows').innerHTML = '';
+                var src = (list && list.length) ? list : TD_DEFAULT_PRESETS;
+                src.forEach(tdAddPresetRow);
+            }
+
+            function tdReadPresets() {
+                var out = [];
+                document.querySelectorAll('#presetRows tr').forEach(function (tr) {
+                    var label = (tr.querySelector('.p-label').value || '').trim();
+                    var height = parseInt(tr.querySelector('.p-height').value, 10);
+                    if (!label || !height) { return; }
+                    var minw = parseInt(tr.querySelector('.p-minwidth').value, 10);
+                    var mb = parseFloat(tr.querySelector('.p-mbps').value);
+                    out.push({
+                        Label: label,
+                        MaxHeight: height,
+                        MinSourceWidth: isNaN(minw) ? 0 : minw,
+                        VideoBitrate: isNaN(mb) ? 0 : Math.round(mb * 1000000)
+                    });
+                });
+                out.sort(function (a, b) { return a.MaxHeight - b.MaxHeight; });
+                return out;
+            }
+
+            function tdRenderBanner(kind, title, body) {
+                var styles = {
+                    ok:   { bg: 'rgba(60,200,120,.10)', bd: 'rgba(60,200,120,.40)', col: '#3ecf8e', ic: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z' },
+                    warn: { bg: 'rgba(255,170,0,.12)', bd: 'rgba(255,170,0,.45)', col: '#ffb300', ic: 'M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z' },
+                    err:  { bg: 'rgba(255,80,80,.12)', bd: 'rgba(255,80,80,.50)', col: '#ff6b6b', ic: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z' }
+                };
+                var c = styles[kind] || styles.warn;
+                var el = document.querySelector('#prereqBanner');
+                el.style.display = 'flex';
+                el.style.background = c.bg;
+                el.style.border = '1px solid ' + c.bd;
+                el.innerHTML =
+                    '<svg viewBox="0 0 24 24" fill="' + c.col + '"><path d="' + c.ic + '"/></svg>' +
+                    '<div><div style="font-weight:600;margin-bottom:.15em;color:' + c.col + ';">' + title + '</div>' +
+                    '<div style="opacity:.88;">' + body + '</div></div>';
+            }
+
+            function tdCheckPrerequisites() {
+                var handle = function (plugins) {
+                    var list = Array.isArray(plugins) ? plugins : ((plugins && plugins.Items) || []);
+                    var ft = list.filter(function (p) {
+                        return ((p.Name || '').toLowerCase().indexOf('file transformation') !== -1);
+                    })[0];
+                    if (!ft) {
+                        tdRenderBanner('err', 'File Transformation is not installed',
+                            'This plugin\'s download button is injected into the web UI by the <b>File Transformation</b> plugin, which is missing. Add its repository <code>https://www.iamparadox.dev/jellyfin/plugins/manifest.json</code>, install it from the catalog, and restart Jellyfin. Until then the quality picker will not appear.');
+                    } else if ((ft.Status || '') !== 'Active') {
+                        tdRenderBanner('warn', 'File Transformation needs a restart',
+                            'File Transformation ' + (ft.Version || '') + ' is installed but its status is <b>' + (ft.Status || 'unknown') + '</b>. Restart Jellyfin to activate it, otherwise the download button will not be injected.');
+                    } else {
+                        tdRenderBanner('ok', 'Prerequisites OK',
+                            'File Transformation ' + (ft.Version || '') + ' is active, so the download button can be injected into the web UI.');
+                    }
+                };
+                try {
+                    if (ApiClient.getPlugins) {
+                        ApiClient.getPlugins().then(handle, function () { handle([]); });
+                    } else {
+                        ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(handle, function () { handle([]); });
+                    }
+                } catch (e) {
+                    handle([]);
+                }
+            }
+
+            document.querySelector('#addPreset').addEventListener('click', function () { tdAddPresetRow(); });
+            document.querySelector('#resetPresets').addEventListener('click', function () { tdSetPresets(TD_DEFAULT_PRESETS); });
+
             document.querySelector('#TranscodeDownloaderConfigPage').addEventListener('pageshow', function () {
                 Dashboard.showLoadingMsg();
+                tdCheckPrerequisites();
                 ApiClient.getPluginConfiguration(TranscodeDownloaderConfig.pluginUniqueId).then(function (config) {
                     document.querySelector('#VideoCodec').value = config.VideoCodec;
                     document.querySelector('#AudioBitrate').value = config.AudioBitrate;
@@ -97,14 +247,7 @@
                     document.querySelector('#OrphanTimeoutSeconds').value = config.OrphanTimeoutSeconds;
                     document.querySelector('#CleanupAfterDays').value = config.CleanupAfterDays;
                     document.querySelector('#WorkPath').value = config.WorkPath || '';
-                    var defaultQualities = [
-                        { Label: '480p', MaxHeight: 480, MinSourceWidth: 0, VideoBitrate: 1200000 },
-                        { Label: '720p', MaxHeight: 720, MinSourceWidth: 1152, VideoBitrate: 2500000 },
-                        { Label: '1080p', MaxHeight: 1080, MinSourceWidth: 1728, VideoBitrate: 5000000 },
-                        { Label: '4K', MaxHeight: 2160, MinSourceWidth: 3456, VideoBitrate: 16000000 }
-                    ];
-                    var q = (config.Qualities && config.Qualities.length) ? config.Qualities : defaultQualities;
-                    document.querySelector('#Qualities').value = JSON.stringify(q, null, 2);
+                    tdSetPresets(config.Qualities);
                     Dashboard.hideLoadingMsg();
                 });
             });
@@ -121,13 +264,7 @@
                     config.OrphanTimeoutSeconds = parseInt(document.querySelector('#OrphanTimeoutSeconds').value, 10);
                     config.CleanupAfterDays = parseFloat(document.querySelector('#CleanupAfterDays').value);
                     config.WorkPath = document.querySelector('#WorkPath').value;
-                    try {
-                        config.Qualities = JSON.parse(document.querySelector('#Qualities').value);
-                    } catch (err) {
-                        Dashboard.hideLoadingMsg();
-                        Dashboard.alert('Quality presets: invalid JSON — ' + err.message);
-                        return;
-                    }
+                    config.Qualities = tdReadPresets();
                     ApiClient.updatePluginConfiguration(TranscodeDownloaderConfig.pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
                     });
