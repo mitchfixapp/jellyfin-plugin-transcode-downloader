@@ -57,13 +57,6 @@
                         <div class="fieldDescription">2 = stereo downmix, ideal for phones and tablets.</div>
                     </div>
 
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="ShowOriginal" name="ShowOriginal" type="checkbox" is="emby-checkbox" />
-                            <span>Offer an "Original" (direct, no transcode) download</span>
-                        </label>
-                    </div>
-
                     <hr class="td-div">
                     <h3 class="td-h">Performance &amp; cleanup</h3>
                     <p class="td-sub">How many transcodes run at once and how long finished files are kept.</p>
@@ -113,6 +106,14 @@
                         source is narrower than this, which prevents upscaling (e.g. a 1080p source won't show 4K).
                         Leave it 0 to always offer the quality.
                     </p>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription" style="margin-bottom:1em;">
+                        <label class="emby-checkbox-label">
+                            <input id="ShowOriginal" name="ShowOriginal" type="checkbox" is="emby-checkbox" />
+                            <span>Offer an "Original" (direct, no transcode) download</span>
+                        </label>
+                        <div class="fieldDescription">Adds an "Original" choice next to the transcode qualities below, downloading the full source file as-is.</div>
+                    </div>
 
                     <table class="td-presets">
                         <thead>

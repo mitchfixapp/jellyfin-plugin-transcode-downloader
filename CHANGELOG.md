@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0-beta.9 - 2026-06-08
+- Settings: move the "Offer Original" option down to the Quality presets section, since it is one
+  of the download options offered alongside the transcode qualities.
+
 ## v1.1.0-beta.8 - 2026-06-08
 - The default retention for finished transcode files is now 7 days (was 1 day).
 
