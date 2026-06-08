@@ -436,7 +436,7 @@
       fetch(svc("/Jobs"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: ch.id, height: height })
+        body: JSON.stringify({ itemId: ch.id, height: height, bulk: true })
       })
         .then(function (r) { if (!r.ok) { return r.text().then(function (t) { throw new Error(t || r.status); }); } return r.json(); })
         .then(function (j) {

@@ -164,9 +164,10 @@ public sealed class TranscodeManager : IDisposable
     /// <param name="itemId">Source item id.</param>
     /// <param name="requestedHeight">Requested output height.</param>
     /// <param name="token">The user's access token (for the internal stream call).</param>
+    /// <param name="bulk">Whether this job is part of a "Download all" batch (longer orphan grace).</param>
     /// <param name="error">Set to an error message when the job cannot be created.</param>
     /// <returns>The created job, or null on failure.</returns>
-    public TranscodeJob? CreateJob(Guid itemId, int requestedHeight, string token, out string? error)
+    public TranscodeJob? CreateJob(Guid itemId, int requestedHeight, string token, bool bulk, out string? error)
     {
         error = null;
         if (_libraryManager.GetItemById(itemId) is not Video item)
@@ -185,6 +186,7 @@ public sealed class TranscodeManager : IDisposable
             DurationSeconds = (item.RunTimeTicks ?? 0) / (double)TimeSpan.TicksPerSecond,
             FileName = BuildFileName(item, preset.MaxHeight),
             CacheKey = cacheKey,
+            IsBulk = bulk,
             OutputPath = Path.Combine(WorkDir, "td_" + cacheKey + ".mp4")
         };
         _jobs[job.Id] = job;
@@ -336,11 +338,19 @@ public sealed class TranscodeManager : IDisposable
     {
         try
         {
-            var timeout = TimeSpan.FromSeconds(Math.Max(10, Config.OrphanTimeoutSeconds));
+            var single = TimeSpan.FromSeconds(Math.Max(10, Config.OrphanTimeoutSeconds));
+
+            // A "Download all" batch only runs MaxConcurrent at a time, so the whole set can take
+            // many minutes. Browsers throttle a backgrounded tab's timers to roughly once a minute,
+            // which would otherwise let this reaper cancel the still-queued episodes. Give batch jobs
+            // a much longer grace; they are still cleaned up if the dialog is truly gone, and the
+            // dialog's Close button cancels them immediately.
+            var bulk = TimeSpan.FromSeconds(Math.Max(600, Config.OrphanTimeoutSeconds * 6));
             var now = DateTime.UtcNow;
             foreach (var job in _jobs.Values)
             {
-                if (job.State is JobState.Queued or JobState.Running && now - job.LastSeenUtc > timeout)
+                var limit = job.IsBulk ? bulk : single;
+                if (job.State is JobState.Queued or JobState.Running && now - job.LastSeenUtc > limit)
                 {
                     _logger.LogInformation("[TranscodeDownloader] orphan job {Id} ({File}) cancelled", job.Id, job.FileName);
                     CancelJob(job);

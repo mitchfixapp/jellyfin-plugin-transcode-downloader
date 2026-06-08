@@ -84,7 +84,7 @@ public class TranscodeDownloaderController : ControllerBase
             return BadRequest("invalid itemId");
         }
 
-        var job = _manager.CreateJob(id, body.Height, token, out var error);
+        var job = _manager.CreateJob(id, body.Height, token, body.Bulk, out var error);
         if (job is null)
         {
             return BadRequest(error);

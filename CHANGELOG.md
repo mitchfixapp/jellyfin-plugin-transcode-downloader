@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0-beta.5 - 2026-06-08
+- Fix "Download all" stopping after a few episodes: a backgrounded browser tab no longer causes
+  the remaining episodes in a batch to be cancelled, so the whole set finishes.
+
 ## v1.1.0-beta.4 - 2026-06-08
 - "Download all": add the **Original** option (it was only on single items), so you can grab every
   episode's original file, with no transcode, for a whole season or series.
