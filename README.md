@@ -27,20 +27,44 @@ ready-to-play **MP4**.
 > (Findroid, Streamyfin, the native Android TV app), because Jellyfin has no client-side
 > plugin API — the button is injected into the web UI.
 
+## Screenshots
+
+<table>
+<tr>
+<td width="40%" align="center" valign="top">
+  <img src="docs/download-picker.png" alt="Download quality picker"><br>
+  <sub><b>Pick a size</b> on the existing Download action.</sub>
+</td>
+<td width="60%" align="center" valign="top">
+  <img src="docs/download-all.png" alt="Download all with per-episode progress"><br>
+  <sub><b>Download all</b> a season or series, with a per-episode progress list.</sub>
+</td>
+</tr>
+</table>
+
+<p align="center">
+  <img src="docs/settings.png" width="720" alt="Settings page"><br>
+  <sub>Dashboard settings: a prerequisite check, plus a form for quality presets, codec, concurrency and retention.</sub>
+</p>
+
 ## Features
 
 - 🎚️ **Quality picker** on the existing **Download** action — no duplicate buttons.
 - 📦 **Original** option = Jellyfin's normal direct download (no transcode).
 - 🎬 Server-side transcode to a **faststart MP4** (seekable, correct duration, proper
   filenames including `Show SxxExx Title`).
-- 📚 **Download all** — grab a whole **season or series** in one go, with a per-episode
-  progress list and a download link for each finished episode.
+- 💾 **Cache reuse** — downloading the same item and quality again is served instantly from the
+  last transcode instead of re-encoding.
+- 📚 **Download all** — grab a whole **season or series** in one go (transcoded, or the
+  **Original** files), with a per-episode progress list; the bulk button unlocks once every
+  episode is ready.
 - 💬 **Subtitles included** — text subtitle tracks (embedded and external `.srt`) are muxed
   into the download as selectable soft tracks, so you can pick them in your local player.
 - 🚫 **No upscaling** — qualities above the source resolution are hidden automatically.
 - ⏳ **Progress bar + cancel** (cancelling stops ffmpeg immediately and frees the slot).
 - ♻️ **Auto-retry** on a transient server transcode hiccup, so big batches don't lose an episode.
-- ⚙️ **Configurable** presets, bitrates, codec, concurrency, retention — from the dashboard.
+- ⚙️ **Configurable** presets, bitrates, codec, concurrency and retention from the dashboard,
+  with maintenance buttons to **stop all transcodes** or **clear the cache**.
 - 🔑 **No API key needed** — the plugin runs inside Jellyfin and uses your session.
 
 ## How to use
@@ -108,6 +132,20 @@ Restart the server (or the container). Afterwards both plugins should show **Act
 ### 5. Done
 
 Open a movie or episode and click **Download** — you'll get the quality picker.
+
+## Beta channel (for testers)
+
+New features are tested on a separate **beta** repository before they ship to the stable one
+above. If you want early builds (and don't mind the occasional rough edge), add this repository
+**instead of** the stable one:
+
+```
+https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/manifest-beta.json
+```
+
+It installs as **Transcode Downloader (Beta)**. Use either the stable repo *or* the beta repo,
+not both at once — they inject the same button. Stable users should stick with the `main`
+repository above.
 
 ## Configuration
 

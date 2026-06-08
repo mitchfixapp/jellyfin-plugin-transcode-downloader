@@ -279,6 +279,12 @@
         '<div style="font-size:1.1em;font-weight:600;margin-bottom:.2em;">Download all</div>' +
         '<div style="opacity:.6;font-size:.85em;margin-bottom:1em;">' + o.children.length + ' episodes. Pick a quality for the whole set.</div>';
 
+      if (o.showOriginal) {
+        var orig = optionButton("Original", o.children.length + " episodes, full files — no transcode");
+        orig.addEventListener("click", function () { startAllOriginals(o.children, tok, ov, c); });
+        c.appendChild(orig);
+      }
+
       (o.presets || []).forEach(function (p) {
         var b = optionButton(p.label, o.children.length + " episodes, transcoded");
         b.addEventListener("click", function () { startAllJobs(o.children, p.height, ov, c); });
@@ -296,44 +302,162 @@
     });
   }
 
-  function downloadIcon(url, filename) {
-    var a = document.createElement("a");
-    a.href = url;
-    a.setAttribute("download", filename || "");
-    a.title = "Download";
-    a.style.cssText = "flex:none;display:inline-flex;align-items:center;justify-content:flex-end;min-width:4.5em;color:" + ACCENT + ";cursor:pointer;";
-    a.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>';
-    a.addEventListener("click", function (e) { e.preventDefault(); triggerDownload(url, filename); });
-    return a;
-  }
-
-  function startAllJobs(children, height, ov, c) {
+  // "Download all" -> Original: every episode's original file, no transcode. Each row gets a
+  // download icon; in a browser a single button grabs them all (staggered). On the native apps
+  // the bulk button is hidden because each openUrl switches apps, so the per-episode icons are used.
+  function startAllOriginals(children, tok, ov, c) {
     c.innerHTML =
-      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;">Transcoding ' + children.length + ' episodes…</div>' +
-      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">Queued on the server; a download icon appears next to each one as it finishes.</div>';
+      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;">Download all — Original</div>' +
+      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">The full original file of each episode, no transcode. Use an icon per episode, or grab them all.</div>';
 
     var list = document.createElement("div");
     list.style.cssText = "max-height:48vh;overflow-y:auto;padding-right:12px;margin-bottom:.7em;";
     c.appendChild(list);
 
+    var urls = [];
+    children.forEach(function (ch) {
+      var url = base() + "/Items/" + ch.id + "/Download?api_key=" + encodeURIComponent(tok);
+      urls.push(url);
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.45em 0;border-top:1px solid rgba(255,255,255,.07);font-size:.82em;";
+      var name = document.createElement("span");
+      name.textContent = ch.name;
+      name.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+      row.appendChild(name);
+      list.appendChild(row);
+      setStatus(row, statusEl(ICON_DOWNLOAD, "Download original", ACCENT, function () { triggerDownload(url); }));
+    });
+
+    var footer = document.createElement("div");
+    footer.style.cssText = "display:flex;gap:.5em;";
+    if (!isNativeApp()) {
+      var allBtn = document.createElement("button");
+      allBtn.type = "button";
+      allBtn.textContent = "Download all (" + urls.length + ")";
+      allBtn.style.cssText = "flex:1;background:" + ACCENT + ";color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;font-weight:600;";
+      allBtn.addEventListener("click", function () {
+        urls.forEach(function (u, i) { setTimeout(function () { triggerDownload(u); }, i * 800); });
+      });
+      footer.appendChild(allBtn);
+    }
+
+    var close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "Close";
+    close.style.cssText = "flex:none;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
+    close.addEventListener("click", function () { if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
+    footer.appendChild(close);
+    c.appendChild(footer);
+  }
+
+  function statusEl(svgPath, title, color, onClick) {
+    var a = document.createElement("a");
+    a.href = "#";
+    a.title = title;
+    a.style.cssText = "flex:none;display:inline-flex;align-items:center;justify-content:flex-end;min-width:4.5em;color:" + color + ";cursor:pointer;";
+    a.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="' + svgPath + '"/></svg>';
+    a.addEventListener("click", function (e) { e.preventDefault(); onClick(); });
+    return a;
+  }
+
+  var ICON_DOWNLOAD = "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
+  var ICON_RETRY = "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z";
+
+  function setStatus(row, el) {
+    if (row.tdStatus && row.tdStatus.parentNode === row) { row.replaceChild(el, row.tdStatus); }
+    else { row.appendChild(el); }
+    row.tdStatus = el;
+  }
+
+  function statusText(text) {
+    var s = document.createElement("span");
+    s.textContent = text;
+    s.style.cssText = "flex:none;opacity:.6;min-width:4.5em;text-align:right;";
+    return s;
+  }
+
+  function startAllJobs(children, height, ov, c) {
+    c.innerHTML =
+      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;">Transcoding ' + children.length + ' episodes…</div>' +
+      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">A download icon appears as each one finishes; a failed episode shows a retry icon.</div>';
+
+    var list = document.createElement("div");
+    list.style.cssText = "max-height:48vh;overflow-y:auto;padding-right:12px;margin-bottom:.7em;";
+    c.appendChild(list);
+
+    var total = children.length;
     var finished = [];
     var tracked = [];
-    var batch = { stopped: false, settled: 0, total: children.length, onSettle: null };
+    var batch = { stopped: false };
+    var allBtn = null;
+
+    // "Download all" stays locked until every episode has transcoded successfully.
+    function updateButton() {
+      if (!allBtn) { return; }
+      var done = finished.length === total;
+      allBtn.textContent = "Download all (" + finished.length + "/" + total + ")";
+      allBtn.disabled = !done;
+      allBtn.style.opacity = done ? "1" : ".45";
+      allBtn.style.cursor = done ? "pointer" : "default";
+    }
+
+    function onFail(ch, row, rec) {
+      rec.done = false;
+      setStatus(row, statusEl(ICON_RETRY, "Transcode failed — retry", "#ff6b6b", function () { startOne(ch, row, rec); }));
+      updateButton();
+    }
+
+    function poll(jobId, filename, ch, row, st, rec) {
+      var url = svc("/Jobs/" + jobId + "/File");
+      rec.timer = setInterval(function () {
+        fetch(svc("/Jobs/" + jobId))
+          .then(function (r) { return r.json(); })
+          .then(function (s) {
+            if (s.state === "queued") { st.textContent = "queued"; }
+            else if (s.state === "running") { st.textContent = (s.progress || 0) + "%"; }
+            else if (s.state === "done") {
+              clearInterval(rec.timer); rec.timer = null; rec.done = true;
+              finished.push({ url: url, filename: filename });
+              setStatus(row, statusEl(ICON_DOWNLOAD, "Download", ACCENT, function () { triggerDownload(url, filename); }));
+              updateButton();
+            }
+            else if (s.state === "error") { clearInterval(rec.timer); rec.timer = null; onFail(ch, row, rec); }
+            else if (s.state === "cancelled") { clearInterval(rec.timer); rec.timer = null; }
+          })
+          .catch(function () { /* keep polling */ });
+      }, 2000);
+    }
+
+    function startOne(ch, row, rec) {
+      if (rec.timer) { clearInterval(rec.timer); rec.timer = null; }
+      rec.done = false; rec.jobId = null;
+      var st = statusText("queued");
+      setStatus(row, st);
+      fetch(svc("/Jobs"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: ch.id, height: height, bulk: true })
+      })
+        .then(function (r) { if (!r.ok) { return r.text().then(function (t) { throw new Error(t || r.status); }); } return r.json(); })
+        .then(function (j) {
+          rec.jobId = j.jobId;
+          if (batch.stopped) { fetch(svc("/Jobs/" + j.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); return; }
+          poll(j.jobId, j.filename, ch, row, st, rec);
+        })
+        .catch(function () { onFail(ch, row, rec); });
+    }
+
     children.forEach(function (ch) {
       var row = document.createElement("div");
       row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.45em 0;border-top:1px solid rgba(255,255,255,.07);font-size:.82em;";
       var name = document.createElement("span");
       name.textContent = ch.name;
       name.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
-      var state = document.createElement("span");
-      state.textContent = "queued";
-      state.style.cssText = "flex:none;opacity:.6;min-width:4.5em;text-align:right;";
       row.appendChild(name);
-      row.appendChild(state);
       list.appendChild(row);
-      var rec = { jobId: null, timer: null, finished: false };
+      var rec = { jobId: null, timer: null, done: false };
       tracked.push(rec);
-      runEpisodeJob(ch.id, height, row, state, finished, rec, batch);
+      startOne(ch, row, rec);
     });
 
     // Stop polling and cancel anything still running/queued, so closing the dialog frees the server.
@@ -341,36 +465,24 @@
       batch.stopped = true;
       tracked.forEach(function (r) {
         if (r.timer) { clearInterval(r.timer); r.timer = null; }
-        if (r.jobId && !r.finished) { fetch(svc("/Jobs/" + r.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); }
+        if (r.jobId && !r.done) { fetch(svc("/Jobs/" + r.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); }
       });
     }
 
     var footer = document.createElement("div");
     footer.style.cssText = "display:flex;gap:.5em;";
-    var all = null;
     if (!isNativeApp()) {
-      all = document.createElement("button");
-      all.type = "button";
-      all.textContent = "Download all (transcoding…)";
-      all.disabled = true;
-      all.style.cssText = "flex:1;background:" + ACCENT + ";color:#fff;border:0;border-radius:8px;padding:.6em;cursor:default;font-weight:600;opacity:.45;transition:opacity .2s;";
-      all.addEventListener("click", function () {
-        if (all.disabled) { return; }
+      allBtn = document.createElement("button");
+      allBtn.type = "button";
+      allBtn.disabled = true;
+      allBtn.style.cssText = "flex:1;background:" + ACCENT + ";color:#fff;border:0;border-radius:8px;padding:.6em;cursor:default;font-weight:600;opacity:.45;transition:opacity .2s;";
+      allBtn.addEventListener("click", function () {
+        if (allBtn.disabled) { return; }
         finished.forEach(function (d, i) { setTimeout(function () { triggerDownload(d.url, d.filename); }, i * 800); });
       });
-      footer.appendChild(all);
+      footer.appendChild(allBtn);
     }
-
-    // Keep "Download all" locked until every episode has finished transcoding.
-    batch.onSettle = function () {
-      batch.settled++;
-      if (all && batch.settled >= batch.total && finished.length > 0) {
-        all.disabled = false;
-        all.style.opacity = "1";
-        all.style.cursor = "pointer";
-        all.textContent = "Download all (" + finished.length + ")";
-      }
-    };
+    updateButton();
 
     var close = document.createElement("button");
     close.type = "button";
@@ -379,56 +491,6 @@
     close.addEventListener("click", function () { stopAll(); if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
     footer.appendChild(close);
     c.appendChild(footer);
-  }
-
-  function runEpisodeJob(itemId, height, row, state, finished, rec, batch) {
-    fetch(svc("/Jobs"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId: itemId, height: height })
-    })
-      .then(function (r) { if (!r.ok) { return r.text().then(function (t) { throw new Error(t || r.status); }); } return r.json(); })
-      .then(function (j) {
-        rec.jobId = j.jobId;
-        if (batch.stopped) { rec.finished = true; fetch(svc("/Jobs/" + j.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); return; }
-        pollEpisode(j.jobId, j.filename, row, state, finished, rec, batch);
-      })
-      .catch(function (err) {
-        rec.finished = true;
-        state.textContent = "failed";
-        state.title = err.message;
-        state.style.color = "#ff6b6b";
-        if (batch.onSettle) { batch.onSettle(); }
-      });
-  }
-
-  function pollEpisode(jobId, filename, row, state, finished, rec, batch) {
-    var url = svc("/Jobs/" + jobId + "/File");
-    rec.timer = setInterval(function () {
-      fetch(svc("/Jobs/" + jobId))
-        .then(function (r) { return r.json(); })
-        .then(function (s) {
-          if (s.state === "queued") { state.textContent = "queued"; }
-          else if (s.state === "running") { state.textContent = (s.progress || 0) + "%"; }
-          else if (s.state === "done") {
-            clearInterval(rec.timer); rec.timer = null; rec.finished = true;
-            finished.push({ url: url, filename: filename });
-            row.replaceChild(downloadIcon(url, filename), state);
-            if (batch.onSettle) { batch.onSettle(); }
-          }
-          else if (s.state === "error") {
-            clearInterval(rec.timer); rec.timer = null; rec.finished = true;
-            state.textContent = "error"; state.title = s.error || ""; state.style.color = "#ff6b6b";
-            if (batch.onSettle) { batch.onSettle(); }
-          }
-          else if (s.state === "cancelled") {
-            clearInterval(rec.timer); rec.timer = null; rec.finished = true;
-            state.textContent = "cancelled";
-            if (batch.onSettle) { batch.onSettle(); }
-          }
-        })
-        .catch(function () { /* keep polling */ });
-    }, 2000);
   }
 
   console.log("[TranscodeDownloader] client loaded");

@@ -55,6 +55,12 @@ public class TranscodeJob
     /// <summary>Gets or sets the output file path.</summary>
     public string OutputPath { get; set; } = string.Empty;
 
+    /// <summary>Gets or sets the content-hash cache key used to dedupe and reuse identical transcodes.</summary>
+    public string CacheKey { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets a value indicating whether this job belongs to a "Download all" batch (longer orphan grace).</summary>
+    public bool IsBulk { get; set; }
+
     /// <summary>Gets the creation time (UTC).</summary>
     public DateTime CreatedUtc { get; init; } = DateTime.UtcNow;
 

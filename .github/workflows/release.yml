@@ -4,11 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version, e.g. 1.0.0'
-        required: true
 
 permissions:
   contents: write
@@ -17,27 +12,26 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Determine version
+        id: ver
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "version4=${V}.0" >> "$GITHUB_OUTPUT"
+          echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          echo "branch=main" >> "$GITHUB_OUTPUT"
+          echo "manifest=manifest.json" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: main
+          ref: ${{ steps.ver.outputs.branch }}
           fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '9.0.x'
-
-      - name: Determine version
-        id: ver
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            V="${{ github.event.inputs.version }}"
-          else
-            V="${GITHUB_REF_NAME#v}"
-          fi
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-          echo "version4=$V.0" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: >
@@ -55,7 +49,7 @@ jobs:
           VS="${{ steps.ver.outputs.version }}"
           TS=$(date -u +%Y-%m-%dT%H:%M:%S.0000000Z)
 
-          # Extract this version's section from CHANGELOG.md (## vX.Y.Z ... until next ## )
+          # Extract this version's section from CHANGELOG.md (## vX... until next ## )
           CHANGELOG=$(awk -v ver="## v$VS" '$0 ~ "^"ver"($| )"{f=1;next} /^## /{f=0} f' CHANGELOG.md)
           if [ -z "$(printf '%s' "$CHANGELOG" | tr -d '[:space:]')" ]; then
             CHANGELOG="Release v$VS"
@@ -85,11 +79,12 @@ jobs:
           echo "md5=$MD5" >> "$GITHUB_OUTPUT"
           echo "ts=$TS" >> "$GITHUB_OUTPUT"
 
-      - name: Update manifest.json
+      - name: Update manifest
         run: |
           set -e
           V="${{ steps.ver.outputs.version4 }}"
-          URL="https://github.com/${{ github.repository }}/releases/download/v${{ steps.ver.outputs.version }}/transcode-downloader_$V.zip"
+          MANIFEST="${{ steps.ver.outputs.manifest }}"
+          URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/transcode-downloader_$V.zip"
           CHANGELOG=$(cat changelog.txt)
           ENTRY=$(jq -n \
             --arg v "$V" \
@@ -98,20 +93,22 @@ jobs:
             --arg md5 "${{ steps.pkg.outputs.md5 }}" \
             --arg cl "$CHANGELOG" \
             '{version:$v, changelog:$cl, targetAbi:"10.11.0.0", sourceUrl:$url, checksum:$md5, timestamp:$ts}')
-          jq --argjson entry "$ENTRY" '.[0].versions = ([$entry] + (.[0].versions // []))' manifest.json > manifest.tmp
-          mv manifest.tmp manifest.json
+          jq --argjson entry "$ENTRY" '.[0].versions = ([$entry] + (.[0].versions // []))' "$MANIFEST" > manifest.tmp
+          mv manifest.tmp "$MANIFEST"
 
       - name: Commit manifest
         run: |
+          MANIFEST="${{ steps.ver.outputs.manifest }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
-          git commit -m "Update manifest for v${{ steps.ver.outputs.version }}" || echo "nothing to commit"
-          git push origin HEAD:main || echo "push skipped"
+          git add "$MANIFEST"
+          git commit -m "Update $MANIFEST for ${{ github.ref_name }}" || echo "nothing to commit"
+          git push origin HEAD:${{ steps.ver.outputs.branch }} || echo "push skipped"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v${{ steps.ver.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ steps.ver.outputs.prerelease }}
           files: artifact/transcode-downloader_*.zip
           body_path: release_notes.md

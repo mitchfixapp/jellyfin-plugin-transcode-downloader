@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -43,6 +44,7 @@ public sealed class TranscodeManager : IDisposable
     private readonly IApplicationPaths _appPaths;
 
     private readonly ConcurrentDictionary<Guid, TranscodeJob> _jobs = new();
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _keyLocks = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _slots;
     private readonly Timer _reaper;
 
@@ -162,9 +164,10 @@ public sealed class TranscodeManager : IDisposable
     /// <param name="itemId">Source item id.</param>
     /// <param name="requestedHeight">Requested output height.</param>
     /// <param name="token">The user's access token (for the internal stream call).</param>
+    /// <param name="bulk">Whether this job is part of a "Download all" batch (longer orphan grace).</param>
     /// <param name="error">Set to an error message when the job cannot be created.</param>
     /// <returns>The created job, or null on failure.</returns>
-    public TranscodeJob? CreateJob(Guid itemId, int requestedHeight, string token, out string? error)
+    public TranscodeJob? CreateJob(Guid itemId, int requestedHeight, string token, bool bulk, out string? error)
     {
         error = null;
         if (_libraryManager.GetItemById(itemId) is not Video item)
@@ -175,17 +178,27 @@ public sealed class TranscodeManager : IDisposable
 
         var srcWidth = GetSourceWidth(item);
         var preset = ResolvePreset(requestedHeight, srcWidth);
+        var cacheKey = ComputeCacheKey(item, preset);
         var job = new TranscodeJob
         {
             ItemId = itemId,
             Height = preset.MaxHeight,
             DurationSeconds = (item.RunTimeTicks ?? 0) / (double)TimeSpan.TicksPerSecond,
-            FileName = BuildFileName(item, preset.MaxHeight)
+            FileName = BuildFileName(item, preset.MaxHeight),
+            CacheKey = cacheKey,
+            IsBulk = bulk,
+            OutputPath = Path.Combine(WorkDir, "td_" + cacheKey + ".mp4")
         };
-        job.OutputPath = Path.Combine(WorkDir, job.Id.ToString("N", CultureInfo.InvariantCulture) + ".mp4");
         _jobs[job.Id] = job;
 
-        _ = Task.Run(() => RunAsync(job, preset, token));
+        // Reuse an identical transcode (same item, quality and encode settings) that the cleanup
+        // task has not removed yet, so a repeat download is served instantly instead of being
+        // re-encoded. The check is on the file on disk, so it also works after a server restart.
+        if (!TryUseExistingFile(job))
+        {
+            _ = Task.Run(() => RunAsync(job, preset, token));
+        }
+
         return job;
     }
 
@@ -218,7 +231,7 @@ public sealed class TranscodeManager : IDisposable
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Security",
         "CA3003:Review code for file path injection vulnerabilities",
-        Justification = "The path is composed only of the server work directory and a server-generated GUID job id, is canonicalized, and is verified to remain within the work directory. The Guid only indexes an in-memory dictionary and is never used as a raw path string.")]
+        Justification = "The output path is composed only of the server work directory plus a 'td_' prefix and a server-computed content hash, is canonicalized, and is verified to remain within the work directory. The Guid argument only indexes an in-memory dictionary and is never used as a raw path string.")]
     public Stream? OpenCompletedFile(Guid id, out string fileName)
     {
         fileName = "video.mp4";
@@ -227,11 +240,12 @@ public sealed class TranscodeManager : IDisposable
             return null;
         }
 
-        // Build the path from the work dir + the GUID only, then canonicalize and verify it
-        // stays inside the work dir. This both validates against path traversal and satisfies
-        // the taint analyzer (CA3003): the only path component derived from the request is a Guid.
+        // The output path was built server-side (work dir + a server-computed content hash).
+        // Canonicalize it and verify it stays inside the work dir before opening: this validates
+        // against path traversal and satisfies the taint analyzer (CA3003); the request only
+        // supplies a Guid that indexes the in-memory job dictionary.
         var root = Path.GetFullPath(WorkDir);
-        var candidate = Path.GetFullPath(Path.Combine(root, id.ToString("N", CultureInfo.InvariantCulture) + ".mp4"));
+        var candidate = Path.GetFullPath(job.OutputPath);
         if (!candidate.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal) || !File.Exists(candidate))
         {
             return null;
@@ -251,6 +265,83 @@ public sealed class TranscodeManager : IDisposable
         }
     }
 
+    /// <summary>Cancels every active (queued or running) job.</summary>
+    /// <returns>The number of jobs cancelled.</returns>
+    public int CancelAll()
+    {
+        var count = 0;
+        foreach (var job in _jobs.Values)
+        {
+            if (job.State is JobState.Queued or JobState.Running)
+            {
+                CancelJob(job);
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Deletes cached output files that no active job is using and forgets finished jobs. Running
+    /// jobs and their in-progress temp files are left untouched.
+    /// </summary>
+    /// <param name="bytesFreed">Set to the total number of bytes deleted.</param>
+    /// <returns>The number of files deleted.</returns>
+    public int ClearCache(out long bytesFreed)
+    {
+        bytesFreed = 0;
+        var files = 0;
+
+        foreach (var pair in _jobs.ToArray())
+        {
+            if (pair.Value.State is JobState.Done or JobState.Error or JobState.Cancelled)
+            {
+                _jobs.TryRemove(pair.Key, out _);
+            }
+        }
+
+        try
+        {
+            if (!Directory.Exists(WorkDir))
+            {
+                return files;
+            }
+
+            var active = new HashSet<string>(
+                _jobs.Values
+                    .Where(j => j.State is JobState.Queued or JobState.Running)
+                    .Select(j => Path.GetFullPath(j.OutputPath)),
+                StringComparer.Ordinal);
+
+            foreach (var file in Directory.EnumerateFiles(WorkDir, "*.mp4"))
+            {
+                if (file.EndsWith(".part.mp4", StringComparison.Ordinal) || active.Contains(Path.GetFullPath(file)))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var length = new FileInfo(file).Length;
+                    File.Delete(file);
+                    bytesFreed += length;
+                    files++;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // in use or already gone; skip
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "[TranscodeDownloader] clear cache skipped");
+        }
+
+        return files;
+    }
+
     /// <summary>Removes finished jobs (and their files) older than the configured retention.</summary>
     public void CleanupExpired()
     {
@@ -265,6 +356,46 @@ public sealed class TranscodeManager : IDisposable
                 _jobs.TryRemove(pair.Key, out _);
             }
         }
+
+        // Also remove cached output files that no live job references. After a restart the
+        // in-memory job list is empty, so previously cached files would otherwise linger forever.
+        // The cutoff is by last-write time (refreshed whenever a file is reused), and files a live
+        // job still points to are skipped, so an in-progress or recently used transcode is safe.
+        try
+        {
+            if (Directory.Exists(WorkDir))
+            {
+                var active = new HashSet<string>(
+                    _jobs.Values
+                        .Where(j => j.State is JobState.Queued or JobState.Running or JobState.Done)
+                        .Select(j => Path.GetFullPath(j.OutputPath)),
+                    StringComparer.Ordinal);
+
+                foreach (var file in Directory.EnumerateFiles(WorkDir, "*.mp4"))
+                {
+                    if (active.Contains(Path.GetFullPath(file)))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        if (File.GetLastWriteTimeUtc(file) < cutoff)
+                        {
+                            File.Delete(file);
+                        }
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        // in use or already gone; skip
+                    }
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "[TranscodeDownloader] disk cleanup skipped");
+        }
     }
 
     /// <inheritdoc />
@@ -272,19 +403,41 @@ public sealed class TranscodeManager : IDisposable
     {
         _reaper.Dispose();
         _slots.Dispose();
+        foreach (var keyLock in _keyLocks.Values)
+        {
+            keyLock.Dispose();
+        }
+
+        _keyLocks.Clear();
     }
 
     private void Reap()
     {
         try
         {
-            var timeout = TimeSpan.FromSeconds(Math.Max(10, Config.OrphanTimeoutSeconds));
+            // A running transcode is never auto-cancelled: it is doing work the user asked for, so
+            // it always runs to completion (only the user, via Cancel/Close or "Stop all", stops it).
+            // The reaper only drops jobs that are still QUEUED (nothing transcoded yet, so no work is
+            // lost), and only when the admin has opted in.
+            if (!Config.AutoCancelAbandoned)
+            {
+                return;
+            }
+
+            var single = TimeSpan.FromSeconds(Math.Max(10, Config.OrphanTimeoutSeconds));
+
+            // A "Download all" batch only runs MaxConcurrent at a time, so a big set (a whole show,
+            // or slow software encoding) can keep episodes queued for hours. Browsers also throttle a
+            // backgrounded tab's timers, which would otherwise let this reaper drop the queued
+            // episodes. Give batch jobs a generous, configurable grace (default one day).
+            var bulk = TimeSpan.FromMinutes(Math.Max(1, Config.BulkGraceMinutes));
             var now = DateTime.UtcNow;
             foreach (var job in _jobs.Values)
             {
-                if (job.State is JobState.Queued or JobState.Running && now - job.LastSeenUtc > timeout)
+                var limit = job.IsBulk ? bulk : single;
+                if (job.State == JobState.Queued && now - job.LastSeenUtc > limit)
                 {
-                    _logger.LogInformation("[TranscodeDownloader] orphan job {Id} ({File}) cancelled", job.Id, job.FileName);
+                    _logger.LogInformation("[TranscodeDownloader] queued job {Id} ({File}) dropped (abandoned)", job.Id, job.FileName);
                     CancelJob(job);
                 }
             }
@@ -313,94 +466,115 @@ public sealed class TranscodeManager : IDisposable
 
     private async Task RunAsync(TranscodeJob job, QualityPreset preset, string token)
     {
-        await _slots.WaitAsync().ConfigureAwait(false);
+        // ffmpeg writes to a per-job temp file that is renamed onto the cache path only on success,
+        // so the cache only ever holds complete files (a killed/partial run is never reused).
+        var tempPath = Path.Combine(WorkDir, job.Id.ToString("N", CultureInfo.InvariantCulture) + ".part.mp4");
+
+        // Serialize identical requests (same cache key) so two concurrent downloads of the same item
+        // and quality encode once and the second reuses the result. The key lock is taken before a
+        // concurrency slot so a waiting duplicate does not occupy a slot.
+        var keyLock = _keyLocks.GetOrAdd(job.CacheKey, _ => new SemaphoreSlim(1, 1));
+        await keyLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (job.State == JobState.Cancelled)
+            if (job.State == JobState.Cancelled || TryUseExistingFile(job))
             {
                 return;
             }
 
-            job.State = JobState.Running;
-            var url = BuildStreamUrl(job.ItemId, preset, token, job.Id);
-
-            // Jellyfin's internal transcode stream occasionally returns a transient 5XX when several
-            // transcodes start at once (e.g. "Download all"); retry once before giving up.
-            const int maxAttempts = 2;
-            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            await _slots.WaitAsync().ConfigureAwait(false);
+            try
             {
-                var stderr = new StringBuilder();
-                var psi = new ProcessStartInfo
+                if (job.State == JobState.Cancelled || TryUseExistingFile(job))
                 {
-                    FileName = _mediaEncoder.EncoderPath,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                foreach (var arg in BuildFfmpegArgs(job, url))
-                {
-                    psi.ArgumentList.Add(arg);
+                    return;
                 }
 
-                using (var process = new Process { StartInfo = psi, EnableRaisingEvents = true })
+                job.State = JobState.Running;
+                var url = BuildStreamUrl(job.ItemId, preset, token, job.Id);
+
+                // Jellyfin's internal transcode stream occasionally returns a transient 5XX when several
+                // transcodes start at once (e.g. "Download all"); retry once before giving up.
+                const int maxAttempts = 2;
+                for (var attempt = 1; attempt <= maxAttempts; attempt++)
                 {
-                    process.OutputDataReceived += (_, e) =>
+                    var stderr = new StringBuilder();
+                    var psi = new ProcessStartInfo
                     {
-                        if (e.Data is not null)
-                        {
-                            ParseProgress(job, e.Data);
-                        }
+                        FileName = _mediaEncoder.EncoderPath,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
                     };
-                    process.ErrorDataReceived += (_, e) =>
+                    foreach (var arg in BuildFfmpegArgs(job, url, tempPath))
                     {
-                        if (e.Data is not null && stderr.Length < 4000)
-                        {
-                            stderr.AppendLine(e.Data);
-                        }
-                    };
-
-                    job.Process = process;
-                    process.Start();
-                    process.BeginOutputReadLine();
-                    process.BeginErrorReadLine();
-                    await process.WaitForExitAsync().ConfigureAwait(false);
-
-                    if (job.State == JobState.Cancelled)
-                    {
-                        TryDelete(job.OutputPath);
-                        return;
+                        psi.ArgumentList.Add(arg);
                     }
 
-                    if (process.ExitCode == 0 && File.Exists(job.OutputPath) && new FileInfo(job.OutputPath).Length > 0)
+                    using (var process = new Process { StartInfo = psi, EnableRaisingEvents = true })
                     {
-                        job.Size = new FileInfo(job.OutputPath).Length;
-                        job.Progress = 100;
-                        job.State = JobState.Done;
-                        _logger.LogInformation("[TranscodeDownloader] finished {File} ({Size} bytes)", job.FileName, job.Size);
-                        return;
-                    }
+                        process.OutputDataReceived += (_, e) =>
+                        {
+                            if (e.Data is not null)
+                            {
+                                ParseProgress(job, e.Data);
+                            }
+                        };
+                        process.ErrorDataReceived += (_, e) =>
+                        {
+                            if (e.Data is not null && stderr.Length < 4000)
+                            {
+                                stderr.AppendLine(e.Data);
+                            }
+                        };
 
-                    var error = Tail(stderr.ToString()) ?? string.Format(CultureInfo.InvariantCulture, "ffmpeg exit {0}", process.ExitCode);
-                    TryDelete(job.OutputPath);
+                        job.Process = process;
+                        process.Start();
+                        process.BeginOutputReadLine();
+                        process.BeginErrorReadLine();
+                        await process.WaitForExitAsync().ConfigureAwait(false);
 
-                    if (attempt < maxAttempts)
-                    {
-                        _logger.LogWarning("[TranscodeDownloader] job {Id} attempt {Attempt}/{Max} failed ({Error}); retrying", job.Id, attempt, maxAttempts, error);
-                        job.Progress = 0;
-                        await Task.Delay(2000).ConfigureAwait(false);
                         if (job.State == JobState.Cancelled)
                         {
+                            TryDelete(tempPath);
                             return;
                         }
 
-                        continue;
-                    }
+                        if (process.ExitCode == 0 && File.Exists(tempPath) && new FileInfo(tempPath).Length > 0)
+                        {
+                            Promote(tempPath, job);
+                            job.Progress = 100;
+                            job.State = JobState.Done;
+                            _logger.LogInformation("[TranscodeDownloader] finished {File} ({Size} bytes)", job.FileName, job.Size);
+                            return;
+                        }
 
-                    job.State = JobState.Error;
-                    job.Error = error;
-                    _logger.LogWarning("[TranscodeDownloader] job {Id} failed after {Max} attempts: {Error}", job.Id, maxAttempts, job.Error);
+                        var error = Tail(stderr.ToString()) ?? string.Format(CultureInfo.InvariantCulture, "ffmpeg exit {0}", process.ExitCode);
+                        TryDelete(tempPath);
+
+                        if (attempt < maxAttempts)
+                        {
+                            _logger.LogWarning("[TranscodeDownloader] job {Id} attempt {Attempt}/{Max} failed ({Error}); retrying", job.Id, attempt, maxAttempts, error);
+                            job.Progress = 0;
+                            await Task.Delay(2000).ConfigureAwait(false);
+                            if (job.State == JobState.Cancelled)
+                            {
+                                return;
+                            }
+
+                            continue;
+                        }
+
+                        job.State = JobState.Error;
+                        job.Error = error;
+                        _logger.LogWarning("[TranscodeDownloader] job {Id} failed after {Max} attempts: {Error}", job.Id, maxAttempts, job.Error);
+                    }
                 }
+            }
+            finally
+            {
+                _slots.Release();
             }
         }
         catch (Exception ex)
@@ -408,15 +582,75 @@ public sealed class TranscodeManager : IDisposable
             job.State = JobState.Error;
             job.Error = ex.Message;
             _logger.LogError(ex, "[TranscodeDownloader] job {Id} crashed", job.Id);
-            TryDelete(job.OutputPath);
+            TryDelete(tempPath);
         }
         finally
         {
-            _slots.Release();
+            keyLock.Release();
         }
     }
 
-    private List<string> BuildFfmpegArgs(TranscodeJob job, string url)
+    /// <summary>
+    /// Marks a job as done by reusing the cache file already on disk, refreshing its last-write
+    /// time so recently used transcodes are not cleaned up. Returns false if no complete file exists.
+    /// </summary>
+    private bool TryUseExistingFile(TranscodeJob job)
+    {
+        try
+        {
+            if (File.Exists(job.OutputPath))
+            {
+                var fi = new FileInfo(job.OutputPath);
+                if (fi.Length > 0)
+                {
+                    try
+                    {
+                        File.SetLastWriteTimeUtc(job.OutputPath, DateTime.UtcNow);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        // touching the timestamp is best-effort
+                    }
+
+                    job.Size = fi.Length;
+                    job.Progress = 100;
+                    job.State = JobState.Done;
+                    _logger.LogInformation("[TranscodeDownloader] reusing cached {File} ({Size} bytes)", job.FileName, job.Size);
+                    return true;
+                }
+            }
+        }
+        catch (IOException)
+        {
+            // fall through and transcode fresh
+        }
+
+        return false;
+    }
+
+    private void Promote(string tempPath, TranscodeJob job)
+    {
+        try
+        {
+            File.Move(tempPath, job.OutputPath, overwrite: true);
+        }
+        catch (IOException ex)
+        {
+            _logger.LogDebug(ex, "[TranscodeDownloader] could not move temp into cache for {Id}", job.Id);
+            TryDelete(tempPath);
+        }
+
+        try
+        {
+            job.Size = File.Exists(job.OutputPath) ? new FileInfo(job.OutputPath).Length : 0;
+        }
+        catch (IOException)
+        {
+            job.Size = 0;
+        }
+    }
+
+    private List<string> BuildFfmpegArgs(TranscodeJob job, string url, string outputPath)
     {
         var args = new List<string> { "-hide_banner", "-loglevel", "error", "-i", url };
 
@@ -530,7 +764,7 @@ public sealed class TranscodeManager : IDisposable
         args.Add("pipe:1");
         args.Add("-nostats");
         args.Add("-y");
-        args.Add(job.OutputPath);
+        args.Add(outputPath);
         return args;
     }
 
@@ -610,6 +844,43 @@ public sealed class TranscodeManager : IDisposable
         {
             return 0;
         }
+    }
+
+    /// <summary>
+    /// Builds a deterministic cache key from everything that affects the output bytes: the item,
+    /// the resolved quality, the encode settings, and the source file's size and modified time
+    /// (so the cache invalidates when the source or settings change).
+    /// </summary>
+    private static string ComputeCacheKey(Video item, QualityPreset preset)
+    {
+        long length = 0;
+        long modifiedTicks = 0;
+        try
+        {
+            if (!string.IsNullOrEmpty(item.Path) && File.Exists(item.Path))
+            {
+                var fi = new FileInfo(item.Path);
+                length = fi.Length;
+                modifiedTicks = fi.LastWriteTimeUtc.Ticks;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // source not directly statable; the id + runtime below still key the cache
+        }
+
+        var raw = string.Join(
+            "|",
+            item.Id.ToString("N", CultureInfo.InvariantCulture),
+            preset.MaxHeight.ToString(CultureInfo.InvariantCulture),
+            preset.VideoBitrate.ToString(CultureInfo.InvariantCulture),
+            Config.VideoCodec,
+            Config.AudioBitrate.ToString(CultureInfo.InvariantCulture),
+            Config.MaxAudioChannels.ToString(CultureInfo.InvariantCulture),
+            length.ToString(CultureInfo.InvariantCulture),
+            modifiedTicks.ToString(CultureInfo.InvariantCulture));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
+        return Convert.ToHexString(hash, 0, 12).ToLowerInvariant();
     }
 
     private static string BuildFileName(BaseItem item, int height)

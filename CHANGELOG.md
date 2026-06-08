@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.0 - 2026-06-08
+- **Download all** for a whole season or series: pick one quality, follow a per-episode progress
+  list with a download icon for each finished episode, or grab the **Original** files. The bulk
+  button unlocks once every episode is ready.
+- **Cache reuse**: downloading the same item and quality again is served instantly from the last
+  transcode instead of re-encoding (finished files are kept for 7 days by default).
+- **Subtitles**: embedded and external text subtitle tracks are muxed into the download as
+  selectable soft tracks.
+- **No upscaling**: qualities above the source are hidden, and a mixed-resolution batch falls back
+  to the best quality each episode's source allows.
+- **Redesigned settings page**: edit quality presets in a table, a prerequisite check for the File
+  Transformation plugin, and maintenance buttons to stop all transcodes or clear the cache.
+- A running transcode is never auto-cancelled; cleaning up abandoned transcodes is opt-in.
+
 ## v1.0.6 - 2026-06-07
 - "Download all": keep the bulk download button locked until every episode has finished, add a
   download icon next to each finished episode, and fix the progress-list spacing.
