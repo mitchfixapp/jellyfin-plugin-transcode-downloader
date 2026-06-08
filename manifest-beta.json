@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.1.0.7",
+        "changelog": "- A running transcode is now never auto-cancelled, and auto-cancellation is off by default. When\n  you do turn it on, it only drops jobs that are still queued (not started yet); anything already\n  transcoding always runs to completion.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.7/transcode-downloader_1.1.0.7.zip",
+        "checksum": "6c63f6ff29bcd49dcf64ee1dd6c75c2c",
+        "timestamp": "2026-06-08T18:50:39.0000000Z"
+      },
+      {
         "version": "1.1.0.6",
         "changelog": "- The \"Download all\" batch grace is now configurable (default one day), and there is a switch to\n  turn off auto-cancellation entirely, so large batches or slow software encoding are not\n  interrupted when you look away.\n- Settings: add a \"Stop all transcodes now\" button and a \"Clear cached files now\" button.",
         "targetAbi": "10.11.0.0",
