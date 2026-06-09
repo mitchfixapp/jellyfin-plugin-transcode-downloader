@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.1.1.1",
+        "changelog": "- Cancelling a download now reliably stops the transcode; a cancelled download can no longer keep\n  running and finish in the background.\n- The \"max concurrent transcodes\" setting now applies immediately, without a server restart.\n- Closing a download dialog always stops its background polling and cleans up.\n- Internal hardening of the cache handling and of how item names are shown in the dialogs.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.1-beta.1/transcode-downloader_1.1.1.1.zip",
+        "checksum": "2565cf7a84fc0552f066345ca35a87bd",
+        "timestamp": "2026-06-09T20:42:27.0000000Z"
+      },
+      {
         "version": "1.1.0.9",
         "changelog": "- Settings: move the \"Offer Original\" option down to the Quality presets section, since it is one\n  of the download options offered alongside the transcode qualities.",
         "targetAbi": "10.11.0.0",
