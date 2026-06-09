@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
     "versions": [
       {
+        "version": "1.1.1.0",
+        "changelog": "- Cancelling a download now reliably stops the transcode, and a cancelled download can no longer\n  keep running and finish in the background.\n- The \"max concurrent transcodes\" setting now takes effect immediately, without a server restart.\n- Closing a download dialog always stops its background polling and cleans up.\n- Hardening of the cache handling and of how item names are shown in the dialogs.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.1/transcode-downloader_1.1.1.0.zip",
+        "checksum": "191e614e60b6911d78d187262732ff0a",
+        "timestamp": "2026-06-09T21:28:38.0000000Z"
+      },
+      {
         "version": "1.1.0.0",
         "changelog": "- **Download all** for a whole season or series: pick one quality, follow a per-episode progress\n  list with a download icon for each finished episode, or grab the **Original** files. The bulk\n  button unlocks once every episode is ready.\n- **Cache reuse**: downloading the same item and quality again is served instantly from the last\n  transcode instead of re-encoding (finished files are kept for 7 days by default).\n- **Subtitles**: embedded and external text subtitle tracks are muxed into the download as\n  selectable soft tracks.\n- **No upscaling**: qualities above the source are hidden, and a mixed-resolution batch falls back\n  to the best quality each episode's source allows.\n- **Redesigned settings page**: edit quality presets in a table, a prerequisite check for the File\n  Transformation plugin, and maintenance buttons to stop all transcodes or clear the cache.\n- A running transcode is never auto-cancelled; cleaning up abandoned transcodes is opt-in.",
         "targetAbi": "10.11.0.0",
