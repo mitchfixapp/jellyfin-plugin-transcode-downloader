@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.1 - 2026-06-09
+- Cancelling a download now reliably stops the transcode, and a cancelled download can no longer
+  keep running and finish in the background.
+- The "max concurrent transcodes" setting now takes effect immediately, without a server restart.
+- Closing a download dialog always stops its background polling and cleans up.
+- Hardening of the cache handling and of how item names are shown in the dialogs.
+
 ## v1.1.1-beta.1 - 2026-06-09
 - Cancelling a download now reliably stops the transcode; a cancelled download can no longer keep
   running and finish in the background.
