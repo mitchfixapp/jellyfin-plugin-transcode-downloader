@@ -31,11 +31,13 @@
 
   // ---- server-driven options (per item, cached) ----------------------------
   var optionsCache = {};
+  var OPTIONS_TTL = 60000; // re-fetch options after a minute so preset/source changes show up
   function getOptions(itemId) {
-    if (optionsCache[itemId]) { return Promise.resolve(optionsCache[itemId]); }
+    var hit = optionsCache[itemId];
+    if (hit && (Date.now() - hit.t) < OPTIONS_TTL) { return Promise.resolve(hit.o); }
     return fetch(svc("/Options?itemId=" + itemId))
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (o) { if (o) { optionsCache[itemId] = o; } return o; })
+      .then(function (o) { if (o) { optionsCache[itemId] = { o: o, t: Date.now() }; } return o; })
       .catch(function () { return null; });
   }
 
@@ -105,6 +107,13 @@
     o.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);";
     return o;
   }
+  function closeOverlay(ov) {
+    // Single exit for every dialog: run any registered cleanup (stop polling, cancel jobs), then
+    // remove the overlay. So closing via the backdrop is as safe as the Cancel/Close buttons.
+    if (!ov) { return; }
+    if (ov._tdCleanup) { try { ov._tdCleanup(); } catch (e) { /* noop */ } ov._tdCleanup = null; }
+    if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+  }
   function card() {
     var c = document.createElement("div");
     c.style.cssText = "background:#101418;color:#fff;border-radius:12px;padding:1.4em 1.4em 1.1em;min-width:300px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,.6);font-family:inherit;border:1px solid rgba(255,255,255,.08);";
@@ -116,7 +125,16 @@
     b.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;width:100%;text-align:left;background:#1b2128;color:#fff;border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:.7em .9em;margin-bottom:.5em;cursor:pointer;transition:background .15s;";
     b.onmouseenter = function () { b.style.background = "#232b34"; };
     b.onmouseleave = function () { b.style.background = "#1b2128"; };
-    b.innerHTML = '<span style="font-weight:600;">' + title + '</span>' + (sub ? '<span style="opacity:.55;font-size:.8em;">' + sub + "</span>" : "");
+    var t = document.createElement("span");
+    t.style.cssText = "font-weight:600;";
+    t.textContent = title;
+    b.appendChild(t);
+    if (sub) {
+      var s = document.createElement("span");
+      s.style.cssText = "opacity:.55;font-size:.8em;";
+      s.textContent = sub;
+      b.appendChild(s);
+    }
     return b;
   }
 
@@ -147,10 +165,10 @@
       cancel.type = "button";
       cancel.textContent = "Cancel";
       cancel.style.cssText = "width:100%;margin-top:.3em;background:transparent;color:#9aa;border:0;padding:.6em;cursor:pointer;";
-      cancel.addEventListener("click", function () { document.body.removeChild(ov); });
+      cancel.addEventListener("click", function () { closeOverlay(ov); });
       c.appendChild(cancel);
       ov.appendChild(c);
-      ov.addEventListener("click", function (e) { if (e.target === ov) { document.body.removeChild(ov); } });
+      ov.addEventListener("click", function (e) { if (e.target === ov) { closeOverlay(ov); } });
       document.body.appendChild(ov);
     });
   }
@@ -158,7 +176,7 @@
   function downloadOriginal(itemId, tok, ov) {
     var url = base() + "/Items/" + itemId + "/Download?api_key=" + encodeURIComponent(tok);
     triggerDownload(url);
-    if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); }
+    closeOverlay(ov);
   }
 
   function isNativeApp() {
@@ -211,32 +229,37 @@
             if (bar) { bar.style.width = (s.progress || 0) + "%"; }
             if (status) { status.textContent = s.state === "queued" ? "Queued…" : "Transcoding… " + (s.progress || 0) + "%"; }
           } else if (s.state === "done") {
-            clearInterval(timer); if (bar) { bar.style.width = "100%"; } done(c, jobId, s.filename);
+            clearInterval(timer); ov._tdCleanup = null; if (bar) { bar.style.width = "100%"; } done(c, jobId, s.filename);
           } else if (s.state === "error") {
-            clearInterval(timer); fail(c, "Transcode failed: " + (s.error || "unknown"));
+            clearInterval(timer); ov._tdCleanup = null; fail(c, "Transcode failed: " + (s.error || "unknown"));
           } else if (s.state === "cancelled") {
-            clearInterval(timer);
+            clearInterval(timer); ov._tdCleanup = null; fail(c, "Cancelled.");
           }
         })
         .catch(function () { /* keep polling */ });
     }, 1500);
 
+    // Closing the dialog any way (Cancel button or backdrop click) stops the poll and cancels the
+    // job; cleared above once the job reaches a terminal state so a finished download is not undone.
+    ov._tdCleanup = function () {
+      clearInterval(timer);
+      fetch(svc("/Jobs/" + jobId), { method: "DELETE" }).catch(function () { /* noop */ });
+    };
+
     var cancel = document.createElement("button");
     cancel.type = "button";
     cancel.textContent = "Cancel";
     cancel.style.cssText = "width:100%;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;";
-    cancel.addEventListener("click", function () {
-      clearInterval(timer);
-      fetch(svc("/Jobs/" + jobId), { method: "DELETE" }).catch(function () { /* noop */ });
-      if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); }
-    });
+    cancel.addEventListener("click", function () { closeOverlay(ov); });
     c.appendChild(cancel);
   }
 
   function done(c, jobId, filename) {
-    c.innerHTML =
-      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.3em;">Ready ✓</div>' +
-      '<div style="opacity:.7;font-size:.85em;margin-bottom:1em;word-break:break-all;">' + (filename || "file") + "</div>";
+    c.innerHTML = '<div style="font-size:1.05em;font-weight:600;margin-bottom:.3em;">Ready ✓</div>';
+    var fn = document.createElement("div");
+    fn.style.cssText = "opacity:.7;font-size:.85em;margin-bottom:1em;word-break:break-all;";
+    fn.textContent = filename || "file";
+    c.appendChild(fn);
     var url = svc("/Jobs/" + jobId + "/File");
     var dl = document.createElement("a");
     dl.href = url;
@@ -248,18 +271,22 @@
     var close = document.createElement("button");
     close.textContent = "Close";
     close.style.cssText = "width:100%;background:transparent;color:#9aa;border:0;padding:.5em;cursor:pointer;";
-    close.addEventListener("click", function () { var ov = c.parentNode; if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
+    close.addEventListener("click", function () { closeOverlay(c.parentNode); });
     c.appendChild(close);
     // Auto-start in browsers; in the native app wait for an explicit tap (openUrl switches apps).
     if (!isNativeApp()) { triggerDownload(url, filename); }
   }
 
   function fail(c, msg) {
-    c.innerHTML = '<div style="color:#ff6b6b;font-weight:600;margin-bottom:.8em;">' + msg + "</div>";
+    c.innerHTML = "";
+    var m = document.createElement("div");
+    m.style.cssText = "color:#ff6b6b;font-weight:600;margin-bottom:.8em;";
+    m.textContent = msg;
+    c.appendChild(m);
     var close = document.createElement("button");
     close.textContent = "Close";
     close.style.cssText = "width:100%;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;";
-    close.addEventListener("click", function () { var ov = c.parentNode; if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
+    close.addEventListener("click", function () { closeOverlay(c.parentNode); });
     c.appendChild(close);
   }
 
@@ -295,7 +322,7 @@
       cancel.type = "button";
       cancel.textContent = "Cancel";
       cancel.style.cssText = "width:100%;margin-top:.3em;background:transparent;color:#9aa;border:0;padding:.6em;cursor:pointer;";
-      cancel.addEventListener("click", function () { document.body.removeChild(ov); });
+      cancel.addEventListener("click", function () { closeOverlay(ov); });
       c.appendChild(cancel);
       ov.appendChild(c);
       document.body.appendChild(ov);
@@ -345,7 +372,7 @@
     close.type = "button";
     close.textContent = "Close";
     close.style.cssText = "flex:none;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
-    close.addEventListener("click", function () { if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
+    close.addEventListener("click", function () { closeOverlay(ov); });
     footer.appendChild(close);
     c.appendChild(footer);
   }
@@ -484,11 +511,12 @@
     }
     updateButton();
 
+    ov._tdCleanup = stopAll;
     var close = document.createElement("button");
     close.type = "button";
     close.textContent = "Close";
     close.style.cssText = "flex:none;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
-    close.addEventListener("click", function () { stopAll(); if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); } });
+    close.addEventListener("click", function () { closeOverlay(ov); });
     footer.appendChild(close);
     c.appendChild(footer);
   }
