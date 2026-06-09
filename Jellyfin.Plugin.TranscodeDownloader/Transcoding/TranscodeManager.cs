@@ -45,8 +45,10 @@ public sealed class TranscodeManager : IDisposable
 
     private readonly ConcurrentDictionary<Guid, TranscodeJob> _jobs = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _keyLocks = new(StringComparer.Ordinal);
-    private readonly SemaphoreSlim _slots;
+    private readonly object _slotGate = new();
+    private readonly object _stateLock = new();
     private readonly Timer _reaper;
+    private int _runningCount;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TranscodeManager"/> class.
@@ -69,8 +71,6 @@ public sealed class TranscodeManager : IDisposable
         _serverConfig = serverConfig;
         _appPaths = appPaths;
 
-        var max = Math.Max(1, Config.MaxConcurrent);
-        _slots = new SemaphoreSlim(max, max);
         _reaper = new Timer(_ => Reap(), null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
         Directory.CreateDirectory(WorkDir);
     }
@@ -311,12 +311,12 @@ public sealed class TranscodeManager : IDisposable
             var active = new HashSet<string>(
                 _jobs.Values
                     .Where(j => j.State is JobState.Queued or JobState.Running)
-                    .Select(j => Path.GetFullPath(j.OutputPath)),
+                    .SelectMany(j => new[] { Path.GetFullPath(j.OutputPath), Path.GetFullPath(TempPathFor(j)) }),
                 StringComparer.Ordinal);
 
             foreach (var file in Directory.EnumerateFiles(WorkDir, "*.mp4"))
             {
-                if (file.EndsWith(".part.mp4", StringComparison.Ordinal) || active.Contains(Path.GetFullPath(file)))
+                if (active.Contains(Path.GetFullPath(file)))
                 {
                     continue;
                 }
@@ -365,11 +365,19 @@ public sealed class TranscodeManager : IDisposable
         {
             if (Directory.Exists(WorkDir))
             {
-                var active = new HashSet<string>(
-                    _jobs.Values
-                        .Where(j => j.State is JobState.Queued or JobState.Running or JobState.Done)
-                        .Select(j => Path.GetFullPath(j.OutputPath)),
-                    StringComparer.Ordinal);
+                var active = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var j in _jobs.Values)
+                {
+                    if (j.State is JobState.Queued or JobState.Running or JobState.Done)
+                    {
+                        active.Add(Path.GetFullPath(j.OutputPath));
+                    }
+
+                    if (j.State is JobState.Queued or JobState.Running)
+                    {
+                        active.Add(Path.GetFullPath(TempPathFor(j)));
+                    }
+                }
 
                 foreach (var file in Directory.EnumerateFiles(WorkDir, "*.mp4"))
                 {
@@ -396,13 +404,27 @@ public sealed class TranscodeManager : IDisposable
         {
             _logger.LogDebug(ex, "[TranscodeDownloader] disk cleanup skipped");
         }
+
+        // Drop idle per-key dedup locks so the map does not grow for the server's lifetime. Only a
+        // fully released lock (CurrentCount == 1) is removed; one still held by a job stays. It is
+        // not disposed: a SemaphoreSlim whose wait handle was never materialized is collected by the
+        // GC, and a thread that already holds a reference keeps using a valid object.
+        var activeKeys = new HashSet<string>(
+            _jobs.Values.Where(j => j.State is JobState.Queued or JobState.Running).Select(j => j.CacheKey),
+            StringComparer.Ordinal);
+        foreach (var pair in _keyLocks.ToArray())
+        {
+            if (pair.Value.CurrentCount == 1 && !activeKeys.Contains(pair.Key))
+            {
+                _keyLocks.TryRemove(pair.Key, out _);
+            }
+        }
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
         _reaper.Dispose();
-        _slots.Dispose();
         foreach (var keyLock in _keyLocks.Values)
         {
             keyLock.Dispose();
@@ -448,19 +470,61 @@ public sealed class TranscodeManager : IDisposable
         }
     }
 
-    private static void CancelJob(TranscodeJob job)
+    private void CancelJob(TranscodeJob job)
     {
-        job.State = JobState.Cancelled;
+        Process? proc;
+        lock (_stateLock)
+        {
+            job.State = JobState.Cancelled;
+            proc = job.Process;
+        }
+
+        if (proc is not null)
+        {
+            KillProcess(proc);
+        }
+    }
+
+    // Moves the job to a non-cancel state only if it has not been cancelled, so a cancel that races a
+    // terminal transition (Running/Done/Error) is never silently overwritten. Returns false when the
+    // job is already cancelled, telling the caller to stop and discard instead of resurrecting it.
+    private bool TryAdvance(TranscodeJob job, JobState to)
+    {
+        lock (_stateLock)
+        {
+            if (job.State == JobState.Cancelled)
+            {
+                return false;
+            }
+
+            job.State = to;
+            return true;
+        }
+    }
+
+    private bool IsCancelled(TranscodeJob job)
+    {
+        lock (_stateLock)
+        {
+            return job.State == JobState.Cancelled;
+        }
+    }
+
+    private static void KillProcess(Process process)
+    {
+        // Safe to call on a process that was never started or was already disposed: HasExited reports
+        // false and Kill then throws InvalidOperationException ("no process is associated"), which the
+        // filter below swallows. So a cancel that races process start/teardown can call this freely.
         try
         {
-            if (job.Process is { HasExited: false } p)
+            if (!process.HasExited)
             {
-                p.Kill(true);
+                process.Kill(true);
             }
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            // process already gone
+            // process already gone (or never started)
         }
     }
 
@@ -468,7 +532,7 @@ public sealed class TranscodeManager : IDisposable
     {
         // ffmpeg writes to a per-job temp file that is renamed onto the cache path only on success,
         // so the cache only ever holds complete files (a killed/partial run is never reused).
-        var tempPath = Path.Combine(WorkDir, job.Id.ToString("N", CultureInfo.InvariantCulture) + ".part.mp4");
+        var tempPath = TempPathFor(job);
 
         // Serialize identical requests (same cache key) so two concurrent downloads of the same item
         // and quality encode once and the second reuses the result. The key lock is taken before a
@@ -482,15 +546,19 @@ public sealed class TranscodeManager : IDisposable
                 return;
             }
 
-            await _slots.WaitAsync().ConfigureAwait(false);
+            await AcquireSlotAsync().ConfigureAwait(false);
             try
             {
-                if (job.State == JobState.Cancelled || TryUseExistingFile(job))
+                if (TryUseExistingFile(job))
                 {
                     return;
                 }
 
-                job.State = JobState.Running;
+                if (!TryAdvance(job, JobState.Running))
+                {
+                    return;
+                }
+
                 var url = BuildStreamUrl(job.ItemId, preset, token, job.Id);
 
                 // Jellyfin's internal transcode stream occasionally returns a transient 5XX when several
@@ -529,13 +597,33 @@ public sealed class TranscodeManager : IDisposable
                             }
                         };
 
-                        job.Process = process;
+                        lock (_stateLock)
+                        {
+                            if (job.State == JobState.Cancelled)
+                            {
+                                return;
+                            }
+
+                            job.Process = process;
+                        }
+
                         process.Start();
                         process.BeginOutputReadLine();
                         process.BeginErrorReadLine();
+
+                        // A cancel that raced the assignment above (it saw no process yet) is caught
+                        // here: re-check under the lock and kill the just-started ffmpeg so the cancel
+                        // really stops the encode instead of letting it run to completion.
+                        if (IsCancelled(job))
+                        {
+                            KillProcess(process);
+                            TryDelete(tempPath);
+                            return;
+                        }
+
                         await process.WaitForExitAsync().ConfigureAwait(false);
 
-                        if (job.State == JobState.Cancelled)
+                        if (IsCancelled(job))
                         {
                             TryDelete(tempPath);
                             return;
@@ -545,12 +633,17 @@ public sealed class TranscodeManager : IDisposable
                         {
                             Promote(tempPath, job);
                             job.Progress = 100;
-                            job.State = JobState.Done;
+                            if (!TryAdvance(job, JobState.Done))
+                            {
+                                TryDelete(job.OutputPath);
+                                return;
+                            }
+
                             _logger.LogInformation("[TranscodeDownloader] finished {File} ({Size} bytes)", job.FileName, job.Size);
                             return;
                         }
 
-                        var error = Tail(stderr.ToString()) ?? string.Format(CultureInfo.InvariantCulture, "ffmpeg exit {0}", process.ExitCode);
+                        var error = Redact(Tail(stderr.ToString()) ?? string.Format(CultureInfo.InvariantCulture, "ffmpeg exit {0}", process.ExitCode));
                         TryDelete(tempPath);
 
                         if (attempt < maxAttempts)
@@ -558,7 +651,7 @@ public sealed class TranscodeManager : IDisposable
                             _logger.LogWarning("[TranscodeDownloader] job {Id} attempt {Attempt}/{Max} failed ({Error}); retrying", job.Id, attempt, maxAttempts, error);
                             job.Progress = 0;
                             await Task.Delay(2000).ConfigureAwait(false);
-                            if (job.State == JobState.Cancelled)
+                            if (IsCancelled(job))
                             {
                                 return;
                             }
@@ -566,21 +659,21 @@ public sealed class TranscodeManager : IDisposable
                             continue;
                         }
 
-                        job.State = JobState.Error;
                         job.Error = error;
-                        _logger.LogWarning("[TranscodeDownloader] job {Id} failed after {Max} attempts: {Error}", job.Id, maxAttempts, job.Error);
+                        TryAdvance(job, JobState.Error);
+                        _logger.LogWarning("[TranscodeDownloader] job {Id} failed after {Max} attempts: {Error}", job.Id, maxAttempts, error);
                     }
                 }
             }
             finally
             {
-                _slots.Release();
+                ReleaseSlot();
             }
         }
         catch (Exception ex)
         {
-            job.State = JobState.Error;
-            job.Error = ex.Message;
+            job.Error = Redact(ex.Message);
+            TryAdvance(job, JobState.Error);
             _logger.LogError(ex, "[TranscodeDownloader] job {Id} crashed", job.Id);
             TryDelete(tempPath);
         }
@@ -614,8 +707,11 @@ public sealed class TranscodeManager : IDisposable
 
                     job.Size = fi.Length;
                     job.Progress = 100;
-                    job.State = JobState.Done;
-                    _logger.LogInformation("[TranscodeDownloader] reusing cached {File} ({Size} bytes)", job.FileName, job.Size);
+                    if (TryAdvance(job, JobState.Done))
+                    {
+                        _logger.LogInformation("[TranscodeDownloader] reusing cached {File} ({Size} bytes)", job.FileName, job.Size);
+                    }
+
                     return true;
                 }
             }
@@ -921,6 +1017,43 @@ public sealed class TranscodeManager : IDisposable
 
         return s.Length <= 500 ? s : s[^500..];
     }
+
+    private async Task AcquireSlotAsync()
+    {
+        // Read the limit on each attempt so a dashboard change to MaxConcurrent takes effect without
+        // a server restart. A waiting job re-checks every quarter second; that latency is irrelevant
+        // next to a transcode that runs for minutes.
+        while (true)
+        {
+            lock (_slotGate)
+            {
+                if (_runningCount < Math.Max(1, Config.MaxConcurrent))
+                {
+                    _runningCount++;
+                    return;
+                }
+            }
+
+            await Task.Delay(250).ConfigureAwait(false);
+        }
+    }
+
+    private void ReleaseSlot()
+    {
+        lock (_slotGate)
+        {
+            if (_runningCount > 0)
+            {
+                _runningCount--;
+            }
+        }
+    }
+
+    private string TempPathFor(TranscodeJob job) =>
+        Path.Combine(WorkDir, job.Id.ToString("N", CultureInfo.InvariantCulture) + ".part.mp4");
+
+    private static string Redact(string value) =>
+        Regex.Replace(value, "api_key=[^&\\s\"]+", "api_key=REDACTED", RegexOptions.IgnoreCase);
 
     private void TryDelete(string path)
     {

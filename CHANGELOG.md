@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.1.1-beta.1 - 2026-06-09
+- Cancelling a download now reliably stops the transcode; a cancelled download can no longer keep
+  running and finish in the background.
+- The "max concurrent transcodes" setting now applies immediately, without a server restart.
+- Closing a download dialog always stops its background polling and cleans up.
+- Internal hardening of the cache handling and of how item names are shown in the dialogs.
+
 ## v1.1.0 - 2026-06-08
 - **Download all** for a whole season or series: pick one quality, follow a per-episode progress
   list with a download icon for each finished episode, or grab the **Original** files. The bulk
