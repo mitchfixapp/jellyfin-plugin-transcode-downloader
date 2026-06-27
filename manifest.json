@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.0.0",
+        "changelog": "- **Max cache size (GB)**: a new setting caps the total size of cached transcodes. Once the cache\n  passes the limit, the oldest finished files are removed first to make room; a download that is\n  still in progress is never deleted. Leave it at 0 to keep the cache unlimited (previous behaviour).\n- **Fixed**: the quality picker no longer takes over the download buttons in Jellyfin's subtitle\n  search dialog, so downloading a subtitle works normally again.\n\n  Thanks to [@Reaster0](https://github.com/Reaster0) for reporting both issues and proposing fixes.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.0/transcode-downloader_1.2.0.0.zip",
+        "checksum": "6737ab65a4129de6c4fc52d72ccec03e",
+        "timestamp": "2026-06-27T13:28:08.0000000Z"
+      },
+      {
         "version": "1.1.1.0",
         "changelog": "- Cancelling a download now reliably stops the transcode, and a cancelled download can no longer\n  keep running and finish in the background.\n- The \"max concurrent transcodes\" setting now takes effect immediately, without a server restart.\n- Closing a download dialog always stops its background polling and cleans up.\n- Hardening of the cache handling and of how item names are shown in the dialogs.",
         "targetAbi": "10.11.0.0",
