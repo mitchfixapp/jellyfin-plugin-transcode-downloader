@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.0 - 2026-06-27
+- **Max cache size (GB)**: a new setting caps the total size of cached transcodes. Once the cache
+  passes the limit, the oldest finished files are removed first to make room; a download that is
+  still in progress is never deleted. Leave it at 0 to keep the cache unlimited (previous behaviour).
+- **Fixed**: the quality picker no longer takes over the download buttons in Jellyfin's subtitle
+  search dialog, so downloading a subtitle works normally again.
+
+  Thanks to [@Reaster0](https://github.com/Reaster0) for reporting both issues and proposing fixes.
+
 ## v1.1.1 - 2026-06-09
 - Cancelling a download now reliably stops the transcode, and a cancelled download can no longer
   keep running and finish in the background.
