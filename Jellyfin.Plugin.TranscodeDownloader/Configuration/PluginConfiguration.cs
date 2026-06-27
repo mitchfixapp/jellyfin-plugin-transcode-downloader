@@ -49,6 +49,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets how many days a finished transcode file is kept before automatic cleanup.</summary>
     public double CleanupAfterDays { get; set; } = 7.0;
 
+    /// <summary>
+    /// Gets or sets the maximum total size (bytes) of the cache work folder. When exceeded, the
+    /// oldest (least-recently-used) finished transcodes are evicted until it fits; files an
+    /// in-progress job still needs are never removed. 0 = unlimited (retention-only cleanup).
+    /// </summary>
+    public long MaxCacheBytes { get; set; }
+
     /// <summary>Gets or sets an optional override path for temporary transcode files. Empty = plugin cache folder.</summary>
     public string WorkPath { get; set; } = string.Empty;
 }

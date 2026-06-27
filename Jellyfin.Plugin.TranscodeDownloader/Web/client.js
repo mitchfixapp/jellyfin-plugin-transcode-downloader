@@ -83,7 +83,12 @@
       var isAll = o.kind === "folder";
       var bars = document.querySelectorAll(".btnDownload");
       for (var i = 0; i < bars.length; i++) {
-        if (bars[i].offsetParent !== null) { hijack(bars[i], false, isAll); }
+        var b = bars[i];
+        if (b.offsetParent === null) { continue; }                // not visible
+        if (b.hasAttribute("data-subid")) { continue; }           // subtitle search-result button
+        if (b.closest(".subtitleEditorDialog")) { continue; }     // anything inside the subtitle editor dialog
+        if (b.classList.contains("listItemButton")) { continue; } // list-row buttons (subtitles, etc.) — not the toolbar
+        hijack(b, false, isAll);
       }
       var single = document.querySelector('.actionSheetMenuItem[data-id="download"]');
       if (single) { hijack(single, true, false); }

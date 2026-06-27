@@ -159,6 +159,7 @@ repository above.
 | **Max concurrent transcodes** | How many run at once (takes effect after a restart). |
 | **Orphan timeout** | Auto-cancel a transcode whose dialog stopped polling (closed/abandoned). |
 | **Delete finished files after (days)** | Retention; a scheduled task removes completed transcodes. |
+| **Max cache size (GB)** | Total cache ceiling. When exceeded, the oldest finished files are evicted first; in-progress transcodes are never removed. `0` = unlimited. |
 | **Work folder** | Where temporary transcodes are written (default: cache folder). |
 | **Quality presets (JSON)** | `label`, `maxHeight`, `minSourceWidth` (anti-upscale gate), `videoBitrate` (bits/sec). |
 

@@ -419,6 +419,109 @@ public sealed class TranscodeManager : IDisposable
                 _keyLocks.TryRemove(pair.Key, out _);
             }
         }
+
+        // After age-based cleanup, trim the cache back under its size budget (if one is set).
+        EnforceCacheBudget();
+    }
+
+    /// <summary>
+    /// Enforces the configured maximum cache size. When the work folder exceeds the budget, the
+    /// least-recently-used finished transcodes are deleted (oldest last-write time first) until it
+    /// fits. Files an in-progress (queued or running) job still needs are never touched, and when an
+    /// evicted file belongs to a finished in-memory job that job entry is forgotten too. A budget of
+    /// 0 (or less) means unlimited, so this is a no-op unless the admin opts in.
+    /// </summary>
+    public void EnforceCacheBudget()
+    {
+        var budget = Config.MaxCacheBytes;
+        if (budget <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!Directory.Exists(WorkDir))
+            {
+                return;
+            }
+
+            // Files a queued/running job still needs (its final output and its temp part) must
+            // never be deleted; they still count toward the total so the budget stays honest.
+            var protectedPaths = new HashSet<string>(StringComparer.Ordinal);
+            var doneByPath = new Dictionary<string, Guid>(StringComparer.Ordinal);
+            foreach (var pair in _jobs)
+            {
+                var j = pair.Value;
+                if (j.State is JobState.Queued or JobState.Running)
+                {
+                    protectedPaths.Add(Path.GetFullPath(j.OutputPath));
+                    protectedPaths.Add(Path.GetFullPath(TempPathFor(j)));
+                }
+                else if (j.State == JobState.Done)
+                {
+                    doneByPath[Path.GetFullPath(j.OutputPath)] = pair.Key;
+                }
+            }
+
+            var entries = new List<FileInfo>();
+            long total = 0;
+            foreach (var file in Directory.EnumerateFiles(WorkDir, "*.mp4"))
+            {
+                try
+                {
+                    var fi = new FileInfo(file);
+                    total += fi.Length;
+                    entries.Add(fi);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // gone or unreadable; skip
+                }
+            }
+
+            if (total <= budget)
+            {
+                return;
+            }
+
+            // Cache reuse refreshes a file's last-write time, so oldest last-write == least recently
+            // used. Evict those first until back under budget, skipping in-progress files.
+            foreach (var fi in entries.OrderBy(f => f.LastWriteTimeUtc))
+            {
+                if (total <= budget)
+                {
+                    break;
+                }
+
+                var full = Path.GetFullPath(fi.FullName);
+                if (protectedPaths.Contains(full))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var length = fi.Length;
+                    File.Delete(fi.FullName);
+                    total -= length;
+                    if (doneByPath.TryGetValue(full, out var jobId))
+                    {
+                        _jobs.TryRemove(jobId, out _);
+                    }
+
+                    _logger.LogInformation("[TranscodeDownloader] cache over budget; evicted {File} ({Size} bytes)", fi.Name, length);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // in use or already gone; skip
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "[TranscodeDownloader] cache budget enforcement skipped");
+        }
     }
 
     /// <inheritdoc />
@@ -640,6 +743,7 @@ public sealed class TranscodeManager : IDisposable
                             }
 
                             _logger.LogInformation("[TranscodeDownloader] finished {File} ({Size} bytes)", job.FileName, job.Size);
+                            EnforceCacheBudget();
                             return;
                         }
 
