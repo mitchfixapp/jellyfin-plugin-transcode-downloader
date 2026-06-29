@@ -24,7 +24,7 @@
   function svc(path) {
     return base() + "/TranscodeDownloader" + path + (path.indexOf("?") >= 0 ? "&" : "?") + "api_key=" + encodeURIComponent(token() || "");
   }
-  function currentItemId() {
+  function urlItemId() {
     var m = (location.hash || "").match(/[?&]id=([a-f0-9]{32})/i);
     return m ? m[1] : null;
   }
@@ -41,7 +41,7 @@
       .catch(function () { return null; });
   }
 
-  // ---- hijack native download ----------------------------------------------
+  // ---- intercept native download -------------------------------------------
   function closeSheet(fromEl) {
     // Jellyfin's action sheet is a div-based dialog (.dialog.actionSheet.opened) inside a
     // .dialogContainer, with a separate .dialogBackdrop. It is NOT a native <dialog> and it
@@ -63,48 +63,60 @@
     }
   }
 
-  function hijack(el, isSheetItem, isAll) {
-    if (!el || el.dataset.tdHijacked) { return; }
-    el.dataset.tdHijacked = "1";
-    el.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      var open = isAll ? openAllDialog : openDialog;
-      if (isSheetItem) { closeSheet(el); setTimeout(open, 90); } else { open(); }
-    }, true);
+  // One delegated, capture-phase click listener handles every entry point: the detail-page toolbar
+  // button and the "⋮" action-sheet items on the detail, home and library pages. No DOM scanning,
+  // marking or MutationObserver — the click tells us what was pressed.
+  //
+  // The item id comes from the URL (detail pages) or, for an action sheet spawned by a card, from
+  // that card: the sheet itself holds no id (Jellyfin keeps it in a JS closure), so we note which
+  // card's menu was last opened. To decide synchronously whether to take over a click — and
+  // otherwise let Jellyfin's own download proceed — we warm the per-item Options cache the moment a
+  // menu opens or the page changes, then read it without awaiting inside the handler.
+  var ID_RE = /^[a-f0-9]{32}$/i;
+  var DOWNLOAD_SELECTOR = '.btnDownload, .actionSheetMenuItem[data-id="download"], .actionSheetMenuItem[data-id="downloadall"]';
+  var pendingMenuId = null;
+
+  function warm(id) { if (id) { getOptions(id); } }   // populate optionsCache ahead of a click
+  function readyOptions(id) {
+    var hit = id && optionsCache[id];
+    return (hit && (Date.now() - hit.t) < OPTIONS_TTL) ? hit.o : null;
   }
 
-  function scan() {
-    var itemId = currentItemId();
-    if (!itemId) { return; }
-    getOptions(itemId).then(function (o) {
-      if (!o || !o.downloadable) { return; }
-      var isAll = o.kind === "folder";
-      var bars = document.querySelectorAll(".btnDownload");
-      for (var i = 0; i < bars.length; i++) {
-        var b = bars[i];
-        if (b.offsetParent === null) { continue; }                // not visible
-        if (b.hasAttribute("data-subid")) { continue; }           // subtitle search-result button
-        if (b.closest(".subtitleEditorDialog")) { continue; }     // anything inside the subtitle editor dialog
-        if (b.classList.contains("listItemButton")) { continue; } // list-row buttons (subtitles, etc.) — not the toolbar
-        hijack(b, false, isAll);
-      }
-      var single = document.querySelector('.actionSheetMenuItem[data-id="download"]');
-      if (single) { hijack(single, true, false); }
-      var all = document.querySelector('.actionSheetMenuItem[data-id="downloadall"]');
-      if (all) { hijack(all, true, true); }
-    });
-  }
+  document.addEventListener("click", function (e) {
+    var node = e.target;
+    if (!node || !node.closest) { return; }
 
-  var scanPending = null;
-  function scheduleScan() {
-    if (scanPending) { return; }
-    scanPending = setTimeout(function () { scanPending = null; scan(); }, 150);
-  }
-  new MutationObserver(scheduleScan).observe(document.body, { childList: true, subtree: true });
-  window.addEventListener("hashchange", scheduleScan);
-  scheduleScan();
+    // Opening a card's context menu: remember its item and warm the options. Not a download click,
+    // so let it through so Jellyfin can build the sheet.
+    var menuBtn = node.closest('[data-action="menu"]');
+    if (menuBtn) {
+      var holder = menuBtn.closest("[data-id]");
+      var mid = holder && holder.getAttribute("data-id");
+      if (mid && ID_RE.test(mid)) { pendingMenuId = mid; warm(mid); }
+      return;
+    }
+
+    var trigger = node.closest(DOWNLOAD_SELECTOR);
+    if (!trigger) { return; }
+    // Jellyfin core's subtitle-search results are also .btnDownload — those are not ours.
+    if (trigger.hasAttribute("data-subid") || trigger.closest(".subtitleEditorDialog")) { return; }
+
+    var itemId = urlItemId() || pendingMenuId;
+    var o = readyOptions(itemId);
+    if (!o || !o.downloadable) { return; }   // not ours to handle — Jellyfin's native download runs
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    var isSheetItem = !!trigger.closest(".actionSheet");
+    var isAll = trigger.matches('[data-id="downloadall"]') || (!isSheetItem && o.kind === "folder");
+    var open = function () { if (isAll) { openAllDialog(itemId); } else { openDialog(itemId); } };
+    if (isSheetItem) { closeSheet(trigger); setTimeout(open, 90); } else { open(); }
+  }, true);
+
+  window.addEventListener("hashchange", function () { warm(urlItemId()); });
+  warm(urlItemId());
 
   // ---- dialog --------------------------------------------------------------
   function overlay() {
@@ -143,8 +155,7 @@
     return b;
   }
 
-  function openDialog() {
-    var itemId = currentItemId();
+  function openDialog(itemId) {
     var tok = token();
     if (!itemId || !tok) { alert("Could not determine the item or session. Open a movie/episode first."); return; }
     getOptions(itemId).then(function (o) {
@@ -296,8 +307,7 @@
   }
 
   // ---- download all (series / season) --------------------------------------
-  function openAllDialog() {
-    var itemId = currentItemId();
+  function openAllDialog(itemId) {
     var tok = token();
     if (!itemId || !tok) { alert("Could not determine the item or session. Open a series or season first."); return; }
     getOptions(itemId).then(function (o) {
