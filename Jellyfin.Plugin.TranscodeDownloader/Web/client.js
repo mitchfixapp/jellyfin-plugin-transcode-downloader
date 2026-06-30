@@ -77,10 +77,6 @@
   var pendingMenuId = null;
 
   function warm(id) { if (id) { getOptions(id); } }   // populate optionsCache ahead of a click
-  function readyOptions(id) {
-    var hit = id && optionsCache[id];
-    return (hit && (Date.now() - hit.t) < OPTIONS_TTL) ? hit.o : null;
-  }
 
   document.addEventListener("click", function (e) {
     var node = e.target;
@@ -110,16 +106,22 @@
     // (.btnDownload, not in a sheet) is the page item itself, so it keeps using the URL id.
     var isSheetItem = !!trigger.closest(".actionSheet");
     var itemId = isSheetItem ? (pendingMenuId || urlItemId()) : (urlItemId() || pendingMenuId);
-    var o = readyOptions(itemId);
-    if (!o || !o.downloadable) { return; }   // not ours to handle — Jellyfin's native download runs
+    if (!itemId) { return; }   // can't resolve the item — let Jellyfin's native download run
 
+    // Take this click on a known download control now, then resolve the options asynchronously. The
+    // options may not have finished warming (a fast click right after opening the menu) or the cached
+    // entry may be older than the TTL (a long-open menu); deciding synchronously off a possibly-empty
+    // cache is what made the picker silently fall through to the native download.
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
 
-    var isAll = trigger.matches('[data-id="downloadall"]') || (!isSheetItem && o.kind === "folder");
-    var open = function () { if (isAll) { openAllDialog(itemId); } else { openDialog(itemId); } };
-    if (isSheetItem) { closeSheet(trigger); setTimeout(open, 90); } else { open(); }
+    getOptions(itemId).then(function (o) {
+      if (!o || !o.downloadable) { return; }   // genuinely not downloadable — nothing to offer
+      var isAll = trigger.matches('[data-id="downloadall"]') || (!isSheetItem && o.kind === "folder");
+      var open = function () { if (isAll) { openAllDialog(itemId); } else { openDialog(itemId); } };
+      if (isSheetItem) { closeSheet(trigger); setTimeout(open, 90); } else { open(); }
+    });
   }, true);
 
   window.addEventListener("hashchange", function () { pendingMenuId = null; warm(urlItemId()); });

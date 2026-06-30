@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.1-beta.3 - 2026-06-30
+- **Fixed**: the quality picker could still fall through to a normal download — showing no picker —
+  when **Download** was clicked quickly after opening a menu, or when a menu had been open for a
+  while. The picker now reliably appears in those cases.
+
 ## v1.2.1-beta.2 - 2026-06-30
 - **Fixed**: choosing **Download** from a card's `⋮` menu on a detail page now acts on the card you
   clicked, not on the page's own item. Downloading a single episode from a series or season page, or
