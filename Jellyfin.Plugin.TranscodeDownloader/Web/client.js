@@ -86,13 +86,17 @@
     var node = e.target;
     if (!node || !node.closest) { return; }
 
-    // Opening a card's context menu: remember its item and warm the options. Not a download click,
-    // so let it through so Jellyfin can build the sheet.
-    var menuBtn = node.closest('[data-action="menu"]');
+    // Opening a context menu: remember which item the sheet it builds will act on. A card's "⋮"
+    // ([data-action="menu"]) carries the item id on its nearest [data-id] ancestor; the detail-page
+    // header "⋮" (.btnMoreCommands) has none, so it clears the pending id and a sheet download falls
+    // back to the page (URL) item. Not a download click, so let it through for Jellyfin to build the
+    // sheet.
+    var menuBtn = node.closest('[data-action="menu"], .btnMoreCommands');
     if (menuBtn) {
       var holder = menuBtn.closest("[data-id]");
       var mid = holder && holder.getAttribute("data-id");
-      if (mid && ID_RE.test(mid)) { pendingMenuId = mid; warm(mid); }
+      pendingMenuId = (mid && ID_RE.test(mid)) ? mid : null;
+      if (pendingMenuId) { warm(pendingMenuId); }
       return;
     }
 
@@ -101,7 +105,11 @@
     // Jellyfin core's subtitle-search results are also .btnDownload — those are not ours.
     if (trigger.hasAttribute("data-subid") || trigger.closest(".subtitleEditorDialog")) { return; }
 
-    var itemId = urlItemId() || pendingMenuId;
+    // A click inside an action sheet belongs to the card whose menu opened it — on a detail page the
+    // URL still points at the page item, which must not shadow it. The detail-page toolbar button
+    // (.btnDownload, not in a sheet) is the page item itself, so it keeps using the URL id.
+    var isSheetItem = !!trigger.closest(".actionSheet");
+    var itemId = isSheetItem ? (pendingMenuId || urlItemId()) : (urlItemId() || pendingMenuId);
     var o = readyOptions(itemId);
     if (!o || !o.downloadable) { return; }   // not ours to handle — Jellyfin's native download runs
 
@@ -109,13 +117,12 @@
     e.stopPropagation();
     e.stopImmediatePropagation();
 
-    var isSheetItem = !!trigger.closest(".actionSheet");
     var isAll = trigger.matches('[data-id="downloadall"]') || (!isSheetItem && o.kind === "folder");
     var open = function () { if (isAll) { openAllDialog(itemId); } else { openDialog(itemId); } };
     if (isSheetItem) { closeSheet(trigger); setTimeout(open, 90); } else { open(); }
   }, true);
 
-  window.addEventListener("hashchange", function () { warm(urlItemId()); });
+  window.addEventListener("hashchange", function () { pendingMenuId = null; warm(urlItemId()); });
   warm(urlItemId());
 
   // ---- dialog --------------------------------------------------------------
