@@ -24,7 +24,7 @@
   function svc(path) {
     return base() + "/TranscodeDownloader" + path + (path.indexOf("?") >= 0 ? "&" : "?") + "api_key=" + encodeURIComponent(token() || "");
   }
-  function currentItemId() {
+  function urlItemId() {
     var m = (location.hash || "").match(/[?&]id=([a-f0-9]{32})/i);
     return m ? m[1] : null;
   }
@@ -41,7 +41,7 @@
       .catch(function () { return null; });
   }
 
-  // ---- hijack native download ----------------------------------------------
+  // ---- intercept native download -------------------------------------------
   function closeSheet(fromEl) {
     // Jellyfin's action sheet is a div-based dialog (.dialog.actionSheet.opened) inside a
     // .dialogContainer, with a separate .dialogBackdrop. It is NOT a native <dialog> and it
@@ -63,48 +63,69 @@
     }
   }
 
-  function hijack(el, isSheetItem, isAll) {
-    if (!el || el.dataset.tdHijacked) { return; }
-    el.dataset.tdHijacked = "1";
-    el.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      var open = isAll ? openAllDialog : openDialog;
-      if (isSheetItem) { closeSheet(el); setTimeout(open, 90); } else { open(); }
-    }, true);
-  }
+  // One delegated, capture-phase click listener handles every entry point: the detail-page toolbar
+  // button and the "⋮" action-sheet items on the detail, home and library pages. No DOM scanning,
+  // marking or MutationObserver — the click tells us what was pressed.
+  //
+  // The item id comes from the URL (detail pages) or, for an action sheet spawned by a card, from
+  // that card: the sheet itself holds no id (Jellyfin keeps it in a JS closure), so we note which
+  // card's menu was last opened. To decide synchronously whether to take over a click — and
+  // otherwise let Jellyfin's own download proceed — we warm the per-item Options cache the moment a
+  // menu opens or the page changes, then read it without awaiting inside the handler.
+  var ID_RE = /^[a-f0-9]{32}$/i;
+  var DOWNLOAD_SELECTOR = '.btnDownload, .actionSheetMenuItem[data-id="download"], .actionSheetMenuItem[data-id="downloadall"]';
+  var pendingMenuId = null;
 
-  function scan() {
-    var itemId = currentItemId();
-    if (!itemId) { return; }
+  function warm(id) { if (id) { getOptions(id); } }   // populate optionsCache ahead of a click
+
+  document.addEventListener("click", function (e) {
+    var node = e.target;
+    if (!node || !node.closest) { return; }
+
+    // Opening a context menu: remember which item the sheet it builds will act on. A card's "⋮"
+    // ([data-action="menu"]) carries the item id on its nearest [data-id] ancestor; the detail-page
+    // header "⋮" (.btnMoreCommands) has none, so it clears the pending id and a sheet download falls
+    // back to the page (URL) item. Not a download click, so let it through for Jellyfin to build the
+    // sheet.
+    var menuBtn = node.closest('[data-action="menu"], .btnMoreCommands');
+    if (menuBtn) {
+      var holder = menuBtn.closest("[data-id]");
+      var mid = holder && holder.getAttribute("data-id");
+      pendingMenuId = (mid && ID_RE.test(mid)) ? mid : null;
+      if (pendingMenuId) { warm(pendingMenuId); }
+      return;
+    }
+
+    var trigger = node.closest(DOWNLOAD_SELECTOR);
+    if (!trigger) { return; }
+    // Jellyfin core's subtitle-search results are also .btnDownload — those are not ours.
+    if (trigger.hasAttribute("data-subid") || trigger.closest(".subtitleEditorDialog")) { return; }
+
+    // A click inside an action sheet belongs to the card whose menu opened it — on a detail page the
+    // URL still points at the page item, which must not shadow it. The detail-page toolbar button
+    // (.btnDownload, not in a sheet) is the page item itself, so it keeps using the URL id.
+    var isSheetItem = !!trigger.closest(".actionSheet");
+    var itemId = isSheetItem ? (pendingMenuId || urlItemId()) : (urlItemId() || pendingMenuId);
+    if (!itemId) { return; }   // can't resolve the item — let Jellyfin's native download run
+
+    // Take this click on a known download control now, then resolve the options asynchronously. The
+    // options may not have finished warming (a fast click right after opening the menu) or the cached
+    // entry may be older than the TTL (a long-open menu); deciding synchronously off a possibly-empty
+    // cache is what made the picker silently fall through to the native download.
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
     getOptions(itemId).then(function (o) {
-      if (!o || !o.downloadable) { return; }
-      var isAll = o.kind === "folder";
-      var bars = document.querySelectorAll(".btnDownload");
-      for (var i = 0; i < bars.length; i++) {
-        var b = bars[i];
-        if (b.offsetParent === null) { continue; }                // not visible
-        if (b.hasAttribute("data-subid")) { continue; }           // subtitle search-result button
-        if (b.closest(".subtitleEditorDialog")) { continue; }     // anything inside the subtitle editor dialog
-        if (b.classList.contains("listItemButton")) { continue; } // list-row buttons (subtitles, etc.) — not the toolbar
-        hijack(b, false, isAll);
-      }
-      var single = document.querySelector('.actionSheetMenuItem[data-id="download"]');
-      if (single) { hijack(single, true, false); }
-      var all = document.querySelector('.actionSheetMenuItem[data-id="downloadall"]');
-      if (all) { hijack(all, true, true); }
+      if (!o || !o.downloadable) { return; }   // genuinely not downloadable — nothing to offer
+      var isAll = trigger.matches('[data-id="downloadall"]') || (!isSheetItem && o.kind === "folder");
+      var open = function () { if (isAll) { openAllDialog(itemId); } else { openDialog(itemId); } };
+      if (isSheetItem) { closeSheet(trigger); setTimeout(open, 90); } else { open(); }
     });
-  }
+  }, true);
 
-  var scanPending = null;
-  function scheduleScan() {
-    if (scanPending) { return; }
-    scanPending = setTimeout(function () { scanPending = null; scan(); }, 150);
-  }
-  new MutationObserver(scheduleScan).observe(document.body, { childList: true, subtree: true });
-  window.addEventListener("hashchange", scheduleScan);
-  scheduleScan();
+  window.addEventListener("hashchange", function () { pendingMenuId = null; warm(urlItemId()); });
+  warm(urlItemId());
 
   // ---- dialog --------------------------------------------------------------
   function overlay() {
@@ -143,8 +164,7 @@
     return b;
   }
 
-  function openDialog() {
-    var itemId = currentItemId();
+  function openDialog(itemId) {
     var tok = token();
     if (!itemId || !tok) { alert("Could not determine the item or session. Open a movie/episode first."); return; }
     getOptions(itemId).then(function (o) {
@@ -296,8 +316,7 @@
   }
 
   // ---- download all (series / season) --------------------------------------
-  function openAllDialog() {
-    var itemId = currentItemId();
+  function openAllDialog(itemId) {
     var tok = token();
     if (!itemId || !tok) { alert("Could not determine the item or session. Open a series or season first."); return; }
     getOptions(itemId).then(function (o) {

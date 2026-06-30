@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.1 - 2026-06-30
+- The quality picker now also appears when you choose **Download** (or **Download all**) from a
+  card's `⋮` menu on the home and library pages — previously it only worked from an item's own
+  detail page.
+- Downloading from a card's `⋮` menu now acts on the card you clicked, so downloading a single
+  episode from a series or season page picks the right episode instead of failing on the series.
+- The picker now reliably appears instead of occasionally falling through to a normal download
+  (for example when Download was clicked quickly, or on a series whose episode list is slow to load).
+
+  Thanks to [@Reaster0](https://github.com/Reaster0) for the home/library fix.
+
 ## v1.2.0 - 2026-06-27
 - **Max cache size (GB)**: a new setting caps the total size of cached transcodes. Once the cache
   passes the limit, the oldest finished files are removed first to make room; a download that is
