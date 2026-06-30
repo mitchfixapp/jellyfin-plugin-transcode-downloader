@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.1-beta.1 - 2026-06-30
+- **Fixed**: the quality picker now also appears when you choose **Download** from a card's `⋮`
+  menu on the home and library pages — previously it only worked from an item's detail page.
+  Items the plugin can't transcode now fall through to Jellyfin's normal download instead of
+  doing nothing.
+
+  Thanks to [@Reaster0](https://github.com/Reaster0) for the fix.
+
 ## v1.2.0-beta.1 - 2026-06-27
 - **Max cache size (GB)**: a new setting caps the total size of cached transcodes. Once the cache
   passes the limit, the oldest finished files are removed first to make room; a download that is
