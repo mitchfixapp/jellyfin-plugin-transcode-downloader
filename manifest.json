@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.2.0",
+        "changelog": "- **Fixed**: the plugin failed to load — showing status **\"NotSupported\"** — on any Jellyfin 10.11.x\n  release older than the exact patch it was built against (for example on 10.11.8). It was compiled\n  against too new a Jellyfin version; it now targets the minimum 10.11 and loads on every 10.11.x\n  server.\n\n  Thanks to [@riendril](https://github.com/riendril) for the detailed report and fix.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.2/transcode-downloader_1.2.2.0.zip",
+        "checksum": "b22bfa8e4bb70aeb6fe89a661b1682f3",
+        "timestamp": "2026-07-02T18:44:28.0000000Z"
+      },
+      {
         "version": "1.2.1.0",
         "changelog": "- The quality picker now also appears when you choose **Download** (or **Download all**) from a\n  card's `⋮` menu on the home and library pages — previously it only worked from an item's own\n  detail page.\n- Downloading from a card's `⋮` menu now acts on the card you clicked, so downloading a single\n  episode from a series or season page picks the right episode instead of failing on the series.\n- The picker now reliably appears instead of occasionally falling through to a normal download\n  (for example when Download was clicked quickly, or on a series whose episode list is slow to load).\n\n  Thanks to [@Reaster0](https://github.com/Reaster0) for the home/library fix.",
         "targetAbi": "10.11.0.0",
