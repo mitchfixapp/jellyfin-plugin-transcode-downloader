@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <JellyfinVersion>10.11.11</JellyfinVersion>
+    <!-- Compile against the OLDEST supported Jellyfin (the manifest targetAbi floor), not the latest
+         patch. The referenced MediaBrowser.* assembly version becomes the MINIMUM the plugin can bind
+         to at runtime, so pinning to a newer patch (e.g. 10.11.11) makes the DLL fail to load on any
+         older 10.11.x host with a FileNotFoundException. Keep this in sync with targetAbi in release.yml. -->
+    <JellyfinVersion>10.11.0</JellyfinVersion>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

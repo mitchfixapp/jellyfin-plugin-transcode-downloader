@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.2-beta.1 - 2026-07-02
+- **Fixed**: the plugin failed to load — showing status **"NotSupported"** — on any Jellyfin 10.11.x
+  release older than the exact patch it was built against (e.g. on 10.11.8). It was compiled against
+  too new a Jellyfin version; it now targets the minimum 10.11 and loads on every 10.11.x server.
+
+  Thanks to [@riendril](https://github.com/riendril) for the detailed report and fix.
+
 ## v1.2.1-beta.3 - 2026-06-30
 - **Fixed**: the quality picker could still fall through to a normal download — showing no picker —
   when **Download** was clicked quickly after opening a menu, or when a menu had been open for a
