@@ -190,20 +190,23 @@
   }
 
   // Aggregate of every minimised panel. A panel without jobs (the "Original" list) reports nothing
-  // and simply counts as one ready item.
+  // and simply counts as one ready item. The percentage is weighted by job count, so a 12-episode
+  // batch does not read the same as a single file sitting next to it.
   function summary() {
     var out = { running: 0, ready: 0, failed: 0, percent: 0 };
-    var parts = 0;
+    var weighted = 0;
+    var jobs = 0;
     minimized.forEach(function (ov) {
       var s = ov._tdStatus ? ov._tdStatus() : null;
-      if (!s) { out.ready++; out.percent += 100; parts++; return; }
+      if (!s) { out.ready++; weighted += 100; jobs++; return; }
+      var n = s.jobs || 1;
       out.running += s.running;
       out.ready += s.ready;
       out.failed += s.failed;
-      out.percent += s.percent;
-      parts++;
+      weighted += s.percent * n;
+      jobs += n;
     });
-    out.percent = parts ? Math.round(out.percent / parts) : 0;
+    out.percent = jobs ? Math.round(weighted / jobs) : 0;
     return out;
   }
 
@@ -460,7 +463,7 @@
     var status = c.querySelector("#td-status");
 
     // What the header badge shows while this panel is minimised.
-    var st = { running: 1, ready: 0, failed: 0, percent: 0 };
+    var st = { running: 1, ready: 0, failed: 0, percent: 0, jobs: 1 };
     ov._tdStatus = function () { return st; };
 
     // Remember the job so a page reload can pick it back up.
@@ -706,6 +709,7 @@
     var tracked = [];
     var batch = { stopped: false };
     var allBtn = null;
+    var closeBtn = null;
     var uid = panelUid(ov);
 
     // Only job ids and display names are stored, never the token.
@@ -717,8 +721,21 @@
       writeStore(uid, jobs.length ? { t: Date.now(), height: height, jobs: jobs } : null);
     }
 
-    // "Download all" stays locked until every episode has transcoded successfully.
+    function active() {
+      var n = 0;
+      tracked.forEach(function (r) { if (!r.done && !r.failed) { n++; } });
+      return n;
+    }
+
+    // "Download all" stays locked until every episode has transcoded successfully, and the exit
+    // button says what it actually does: while jobs are still running it cancels them.
     function updateButton() {
+      if (closeBtn) {
+        var busy = active() > 0;
+        closeBtn.textContent = busy ? "Cancel" : "Close";
+        closeBtn.title = busy ? "Stops the transcodes that are still running" : "";
+      }
+
       if (!allBtn) { return; }
       var done = finished.length === total;
       allBtn.textContent = total > 1
@@ -754,9 +771,12 @@
           .then(function (s) {
             if (!s) { return; }
             if (s.state === "queued") { st.textContent = "queued"; }
-            else if (s.state === "running") { st.textContent = (s.progress || 0) + "%"; }
+            else if (s.state === "running") {
+              rec.progress = s.progress || 0;
+              st.textContent = (s.progress || 0) + "%";
+            }
             else if (s.state === "done") {
-              clearInterval(rec.timer); rec.timer = null; rec.done = true;
+              clearInterval(rec.timer); rec.timer = null; rec.done = true; rec.progress = 100;
               rec.file = s.filename || rec.file;
               finished.push({ url: url, filename: rec.file });
               setStatus(rec.row, statusEl(ICON_DOWNLOAD, "Download", ACCENT, function () { triggerDownload(url, rec.file); }));
@@ -774,7 +794,7 @@
 
     function startOne(rec) {
       if (rec.timer) { clearInterval(rec.timer); rec.timer = null; }
-      rec.done = false; rec.failed = false; rec.jobId = null;
+      rec.done = false; rec.failed = false; rec.progress = 0; rec.jobId = null;
       setStatus(rec.row, statusText("queued"));
       fetch(svc("/Jobs"), {
         method: "POST",
@@ -809,6 +829,7 @@
         timer: null,
         done: false,
         failed: false,
+        progress: 0,
         row: row
       };
       tracked.push(rec);
@@ -840,26 +861,34 @@
     updateButton();
 
     ov._tdCleanup = stopAll;
-    // What the header badge shows for this batch while it is minimised.
+    // What the header badge shows for this batch while it is minimised. The percentage averages
+    // the individual jobs — counting only finished episodes would leave the badge on 0% for as
+    // long as the first one takes, which is most of a batch.
     ov._tdStatus = function () {
       var failed = 0;
-      tracked.forEach(function (r) { if (r.failed) { failed++; } });
+      var sum = 0;
+      tracked.forEach(function (r) {
+        if (r.failed) { failed++; }
+        sum += r.done ? 100 : (r.progress || 0);
+      });
       return {
         running: Math.max(0, total - finished.length - failed),
         ready: finished.length,
         failed: failed,
-        percent: total ? Math.round(finished.length / total * 100) : 0
+        percent: total ? Math.round(sum / total) : 0,
+        jobs: total
       };
     };
     footer.appendChild(minimizeButton(ov, false));
 
-    var close = document.createElement("button");
-    close.type = "button";
-    close.textContent = "Close";
-    close.style.cssText = "flex:none;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
-    close.addEventListener("click", function () { closeOverlay(ov); });
-    footer.appendChild(close);
+    closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.textContent = "Cancel";
+    closeBtn.style.cssText = "flex:none;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
+    closeBtn.addEventListener("click", function () { closeOverlay(ov); });
+    footer.appendChild(closeBtn);
     c.appendChild(footer);
+    updateButton();
   }
 
   // ---- pick panels back up after a reload -----------------------------------

@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.3-beta.2 - 2026-08-14
+- **Fixed**: the progress badge on the header icon stayed on 0% for a "Download all" batch until a
+  whole episode had finished. It now follows the actual progress of the episodes being transcoded,
+  and when several downloads are minimized at once the percentage is weighted by how much work each
+  one represents.
+- The button that closes a download panel now reads **Cancel** while transcodes are still running —
+  it stops them — and only becomes **Close** once everything has finished.
+
 ## v1.2.3-beta.1 - 2026-08-14
 - **Minimize a transcode**: the progress dialog no longer holds the screen for the whole transcode.
   **Minimize** parks it — the transcode keeps running — and a download icon with a progress badge
