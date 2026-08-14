@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.3-beta.1 - 2026-08-14
+- **Minimize a transcode**: the progress dialog no longer holds the screen for the whole transcode.
+  **Minimize** parks it — the transcode keeps running — and a download icon with a progress badge
+  appears in the header. Click it to bring the panel back; the badge turns green when the file is
+  ready. Clicking outside the dialog now minimizes it too, so a stray click can no longer throw away
+  a transcode. **Cancel** is still the only thing that stops a job. Works for single downloads and
+  for "Download all".
+
+  Thanks to [@ndom91](https://github.com/ndom91) for the suggestion.
+
 ## v1.2.2-beta.1 - 2026-07-02
 - **Fixed**: the plugin failed to load — showing status **"NotSupported"** — on any Jellyfin 10.11.x
   release older than the exact patch it was built against (e.g. on 10.11.8). It was compiled against

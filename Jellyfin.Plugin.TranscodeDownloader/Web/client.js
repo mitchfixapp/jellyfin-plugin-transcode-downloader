@@ -3,6 +3,7 @@
  * Hijacks Jellyfin's native Download action (toolbar button .btnDownload and the
  * "..." menu item) on movie/episode detail pages and opens a quality picker:
  * "Original" (direct download) or a server-side transcoded, smaller MP4.
+ * A running transcode can be minimised to a button in Jellyfin's header and reopened from there.
  * Served by the plugin at /TranscodeDownloader/ClientScript and injected into index.html.
  */
 (function () {
@@ -137,8 +138,180 @@
     // Single exit for every dialog: run any registered cleanup (stop polling, cancel jobs), then
     // remove the overlay. So closing via the backdrop is as safe as the Cancel/Close buttons.
     if (!ov) { return; }
+    forget(ov);
     if (ov._tdCleanup) { try { ov._tdCleanup(); } catch (e) { /* noop */ } ov._tdCleanup = null; }
     if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+  }
+
+  // ---- minimize + header indicator -----------------------------------------
+  // Minimising must NOT run the overlay's cleanup — that is what cancels the jobs. The panel is
+  // hidden (display:none), never removed, so every poll timer, progress bar and per-episode row
+  // keeps running and restoring is just a display flip. The server side needs nothing: jobs run
+  // detached from the client and only stop on an explicit DELETE.
+  //
+  // While something is minimised a button sits in Jellyfin's header with a progress/ready badge.
+  // Jellyfin re-renders its header on navigation, so a 1s ticker re-attaches the button when it
+  // disappears and repaints the badge — cheaper and more predictable than a MutationObserver, and
+  // it only runs while there is actually something minimised.
+  var minimized = [];       // most recently minimised last
+  var headerBtn = null;
+  var headerBadge = null;
+  var headerTimer = null;
+
+  function minimize(ov) {
+    if (!ov || ov._tdMinimized) { return; }
+    ov._tdMinimized = true;
+    ov.style.display = "none";
+    minimized.push(ov);
+    tick();
+  }
+
+  function restore(ov) {
+    if (!ov) { return; }
+    forget(ov);
+    ov.style.display = "flex";
+    // A transcode that finished while minimised deliberately did not auto-download (the browser
+    // would block a download with no user gesture behind it). Reopening IS that gesture, so the
+    // file starts now.
+    if (ov._tdOnRestore) {
+      var run = ov._tdOnRestore;
+      ov._tdOnRestore = null;
+      try { run(); } catch (e) { /* noop */ }
+    }
+  }
+
+  function forget(ov) {
+    if (!ov || !ov._tdMinimized) { return; }
+    ov._tdMinimized = false;
+    var i = minimized.indexOf(ov);
+    if (i >= 0) { minimized.splice(i, 1); }
+    tick();
+  }
+
+  // Aggregate of every minimised panel. A panel without jobs (the "Original" list) reports nothing
+  // and simply counts as one ready item.
+  function summary() {
+    var out = { running: 0, ready: 0, failed: 0, percent: 0 };
+    var parts = 0;
+    minimized.forEach(function (ov) {
+      var s = ov._tdStatus ? ov._tdStatus() : null;
+      if (!s) { out.ready++; out.percent += 100; parts++; return; }
+      out.running += s.running;
+      out.ready += s.ready;
+      out.failed += s.failed;
+      out.percent += s.percent;
+      parts++;
+    });
+    out.percent = parts ? Math.round(out.percent / parts) : 0;
+    return out;
+  }
+
+  function headerHost() {
+    return document.querySelector(".headerRight")
+      || document.querySelector(".skinHeader .headerButtons")
+      || document.querySelector(".skinHeader");
+  }
+
+  function isVisible(el) {
+    return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  }
+
+  var HEADER_STYLE = "position:relative;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;color:inherit;cursor:pointer;padding:.4em;";
+  var FLOAT_STYLE = "position:fixed;right:1.2em;bottom:1.2em;z-index:2147483646;display:inline-flex;align-items:center;justify-content:center;background:#101418;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:.6em;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5);";
+
+  // Jellyfin hides .headerRight on some screens (it carries a "noHeaderRight" header) and the
+  // player has no header at all. Losing the only way back to a running transcode there would be
+  // worse than an out-of-place button, so the indicator falls back to a floating pill and hops
+  // back into the header as soon as one is visible again.
+  function place() {
+    var host = headerHost();
+    if (isVisible(host)) {
+      if (headerBtn.parentNode !== host) {
+        headerBtn.style.cssText = HEADER_STYLE;
+        host.insertBefore(headerBtn, host.firstChild);
+      }
+    } else if (headerBtn.parentNode !== document.body) {
+      headerBtn.style.cssText = FLOAT_STYLE;
+      document.body.appendChild(headerBtn);
+    }
+  }
+
+  function buildHeaderButton() {
+    var b = document.createElement("button");
+    b.type = "button";
+    // Jellyfin's own header-button classes give the right size/hover; the inline styles keep it
+    // sane on skins that do not define them.
+    b.className = "paper-icon-button-light headerButton headerButtonRight";
+    b.setAttribute("data-td-header", "1");
+    b.style.cssText = HEADER_STYLE;
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="' + ICON_DOWNLOAD + '"/></svg>';
+    var badge = document.createElement("span");
+    badge.style.cssText = "position:absolute;top:0;right:0;min-width:1.5em;height:1.5em;padding:0 .3em;border-radius:1em;background:" + ACCENT + ";color:#fff;font-size:.6em;font-weight:700;line-height:1.5em;text-align:center;box-sizing:border-box;";
+    b.appendChild(badge);
+    b.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Panels are stacked overlays, so bring back the most recent one; the badge count tells the
+      // user how many are still hidden behind it.
+      if (minimized.length) { restore(minimized[minimized.length - 1]); }
+    });
+    headerBadge = badge;
+    return b;
+  }
+
+  function tick() {
+    if (!minimized.length) {
+      if (headerTimer) { clearInterval(headerTimer); headerTimer = null; }
+      if (headerBtn && headerBtn.parentNode) { headerBtn.parentNode.removeChild(headerBtn); }
+      headerBtn = null;
+      headerBadge = null;
+      return;
+    }
+
+    if (!headerBtn) { headerBtn = buildHeaderButton(); }
+    place();
+
+    var s = summary();
+    if (headerBadge) {
+      if (s.running > 0) {
+        headerBadge.textContent = s.percent + "%";
+        headerBadge.style.background = ACCENT;
+      } else if (s.failed > 0 && s.ready === 0) {
+        headerBadge.textContent = "!";
+        headerBadge.style.background = "#ff6b6b";
+      } else {
+        headerBadge.textContent = "✓";
+        headerBadge.style.background = "#3ecf6d";
+      }
+    }
+
+    var bits = [];
+    if (s.running > 0) { bits.push(s.running + " transcoding (" + s.percent + "%)"); }
+    if (s.ready > 0) { bits.push(s.ready + " ready"); }
+    if (s.failed > 0) { bits.push(s.failed + " failed"); }
+    if (minimized.length > 1) { bits.push(minimized.length + " panels minimized"); }
+    headerBtn.title = "Transcode Downloader — " + (bits.join(", ") || "working") + ". Click to reopen.";
+
+    if (!headerTimer) { headerTimer = setInterval(tick, 1000); }
+  }
+
+  // Clicking the backdrop dismisses the quality picker, but once work is under way (the panel
+  // reports a status) it minimises instead — a stray click must never throw away a transcode.
+  function backdrop(ov) {
+    return function (e) {
+      if (e.target !== ov) { return; }
+      if (ov._tdStatus) { minimize(ov); } else { closeOverlay(ov); }
+    };
+  }
+
+  function minimizeButton(ov, wide) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "Minimize";
+    b.title = "Keep transcoding in the background — reopen from the icon in the header";
+    b.style.cssText = (wide ? "flex:1;" : "flex:none;") + "background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
+    b.addEventListener("click", function () { minimize(ov); });
+    return b;
   }
   function card() {
     var c = document.createElement("div");
@@ -193,7 +366,7 @@
       cancel.addEventListener("click", function () { closeOverlay(ov); });
       c.appendChild(cancel);
       ov.appendChild(c);
-      ov.addEventListener("click", function (e) { if (e.target === ov) { closeOverlay(ov); } });
+      ov.addEventListener("click", backdrop(ov));
       document.body.appendChild(ov);
     });
   }
@@ -246,19 +419,31 @@
       '<div id="td-status" style="opacity:.7;font-size:.85em;margin-bottom:1em;">Working…</div>';
     var bar = c.querySelector("#td-bar");
     var status = c.querySelector("#td-status");
+
+    // What the header badge shows while this panel is minimised.
+    var st = { running: 1, ready: 0, failed: 0, percent: 0 };
+    ov._tdStatus = function () { return st; };
+
     var timer = setInterval(function () {
       fetch(svc("/Jobs/" + jobId))
         .then(function (r) { return r.json(); })
         .then(function (s) {
           if (s.state === "running" || s.state === "queued") {
+            st.percent = Math.round(s.progress || 0);
             if (bar) { bar.style.width = (s.progress || 0) + "%"; }
             if (status) { status.textContent = s.state === "queued" ? "Queued…" : "Transcoding… " + (s.progress || 0) + "%"; }
           } else if (s.state === "done") {
-            clearInterval(timer); ov._tdCleanup = null; if (bar) { bar.style.width = "100%"; } done(c, jobId, s.filename);
+            clearInterval(timer); ov._tdCleanup = null;
+            st.running = 0; st.ready = 1; st.percent = 100;
+            if (bar) { bar.style.width = "100%"; } done(ov, c, jobId, s.filename);
           } else if (s.state === "error") {
-            clearInterval(timer); ov._tdCleanup = null; fail(c, "Transcode failed: " + (s.error || "unknown"));
+            clearInterval(timer); ov._tdCleanup = null;
+            st.running = 0; st.failed = 1;
+            fail(c, "Transcode failed: " + (s.error || "unknown"));
           } else if (s.state === "cancelled") {
-            clearInterval(timer); ov._tdCleanup = null; fail(c, "Cancelled.");
+            clearInterval(timer); ov._tdCleanup = null;
+            st.running = 0; st.failed = 1;
+            fail(c, "Cancelled.");
           }
         })
         .catch(function () { /* keep polling */ });
@@ -271,15 +456,21 @@
       fetch(svc("/Jobs/" + jobId), { method: "DELETE" }).catch(function () { /* noop */ });
     };
 
+    // Minimize keeps the transcode running and parks the panel in the header; Cancel is the only
+    // thing that still stops the job.
+    var footer = document.createElement("div");
+    footer.style.cssText = "display:flex;gap:.5em;";
+    footer.appendChild(minimizeButton(ov, true));
     var cancel = document.createElement("button");
     cancel.type = "button";
     cancel.textContent = "Cancel";
-    cancel.style.cssText = "width:100%;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;";
+    cancel.style.cssText = "flex:none;background:transparent;color:#9aa;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
     cancel.addEventListener("click", function () { closeOverlay(ov); });
-    c.appendChild(cancel);
+    footer.appendChild(cancel);
+    c.appendChild(footer);
   }
 
-  function done(c, jobId, filename) {
+  function done(ov, c, jobId, filename) {
     c.innerHTML = '<div style="font-size:1.05em;font-weight:600;margin-bottom:.3em;">Ready ✓</div>';
     var fn = document.createElement("div");
     fn.style.cssText = "opacity:.7;font-size:.85em;margin-bottom:1em;word-break:break-all;";
@@ -299,7 +490,11 @@
     close.addEventListener("click", function () { closeOverlay(c.parentNode); });
     c.appendChild(close);
     // Auto-start in browsers; in the native app wait for an explicit tap (openUrl switches apps).
-    if (!isNativeApp()) { triggerDownload(url, filename); }
+    // While minimised there is no user gesture behind this, which browsers block — so the header
+    // badge turns green instead and the download starts the moment the panel is reopened.
+    if (isNativeApp()) { return; }
+    if (ov && ov._tdMinimized) { ov._tdOnRestore = function () { triggerDownload(url, filename); }; }
+    else { triggerDownload(url, filename); }
   }
 
   function fail(c, msg) {
@@ -349,6 +544,7 @@
       cancel.addEventListener("click", function () { closeOverlay(ov); });
       c.appendChild(cancel);
       ov.appendChild(c);
+      ov.addEventListener("click", backdrop(ov));
       document.body.appendChild(ov);
     });
   }
@@ -391,6 +587,11 @@
       });
       footer.appendChild(allBtn);
     }
+
+    // Nothing is transcoding here (these are the original files), but the list is still worth
+    // parking in the header so the episodes can be grabbed one by one later.
+    ov._tdStatus = function () { return { running: 0, ready: 1, failed: 0, percent: 100 }; };
+    footer.appendChild(minimizeButton(ov, false));
 
     var close = document.createElement("button");
     close.type = "button";
@@ -454,6 +655,7 @@
 
     function onFail(ch, row, rec) {
       rec.done = false;
+      rec.failed = true;
       setStatus(row, statusEl(ICON_RETRY, "Transcode failed — retry", "#ff6b6b", function () { startOne(ch, row, rec); }));
       updateButton();
     }
@@ -481,7 +683,7 @@
 
     function startOne(ch, row, rec) {
       if (rec.timer) { clearInterval(rec.timer); rec.timer = null; }
-      rec.done = false; rec.jobId = null;
+      rec.done = false; rec.failed = false; rec.jobId = null;
       var st = statusText("queued");
       setStatus(row, st);
       fetch(svc("/Jobs"), {
@@ -506,7 +708,7 @@
       name.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
       row.appendChild(name);
       list.appendChild(row);
-      var rec = { jobId: null, timer: null, done: false };
+      var rec = { jobId: null, timer: null, done: false, failed: false };
       tracked.push(rec);
       startOne(ch, row, rec);
     });
@@ -536,6 +738,19 @@
     updateButton();
 
     ov._tdCleanup = stopAll;
+    // What the header badge shows for this batch while it is minimised.
+    ov._tdStatus = function () {
+      var failed = 0;
+      tracked.forEach(function (r) { if (r.failed) { failed++; } });
+      return {
+        running: Math.max(0, total - finished.length - failed),
+        ready: finished.length,
+        failed: failed,
+        percent: total ? Math.round(finished.length / total * 100) : 0
+      };
+    };
+    footer.appendChild(minimizeButton(ov, false));
+
     var close = document.createElement("button");
     close.type = "button";
     close.textContent = "Close";
