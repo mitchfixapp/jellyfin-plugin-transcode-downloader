@@ -11,6 +11,9 @@ and the plugin manifest.
   ready. Clicking outside the dialog now minimizes it too, so a stray click can no longer throw away
   a transcode. **Cancel** is still the only thing that stops a job. Works for single downloads and
   for "Download all".
+- **Reloading the page no longer loses a transcode**: after a refresh — or when you come back to
+  Jellyfin later — running and finished downloads are picked up again and wait behind the same
+  header icon, so a file that finished while you were away is still one click away.
 
   Thanks to [@ndom91](https://github.com/ndom91) for the suggestion.
 

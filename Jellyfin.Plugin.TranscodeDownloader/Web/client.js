@@ -139,6 +139,7 @@
     // remove the overlay. So closing via the backdrop is as safe as the Cancel/Close buttons.
     if (!ov) { return; }
     forget(ov);
+    dropStored(ov);
     if (ov._tdCleanup) { try { ov._tdCleanup(); } catch (e) { /* noop */ } ov._tdCleanup = null; }
     if (ov.parentNode) { ov.parentNode.removeChild(ov); }
   }
@@ -295,6 +296,44 @@
     if (!headerTimer) { headerTimer = setInterval(tick, 1000); }
   }
 
+  // ---- surviving a page reload ---------------------------------------------
+  // Minimising survives navigation because the overlay lives on <body>, but a hard reload throws
+  // the panel — and with it the job ids — away, while the transcode keeps running on the server
+  // and its finished file sits in the cache for days. So every panel that owns jobs writes its ids
+  // to localStorage and picks them up again on the next load. Only ids and display names are
+  // stored, no tokens.
+  var STORE_KEY = "tdTranscodePanels";
+  var STORE_TTL = 2 * 24 * 3600 * 1000;   // well inside the server's default 7-day retention
+  var uidSeq = 0;
+
+  function readStore() {
+    try {
+      var raw = window.localStorage.getItem(STORE_KEY);
+      var o = raw ? JSON.parse(raw) : null;
+      return (o && typeof o === "object") ? o : {};
+    } catch (e) { return {}; }
+  }
+
+  // Read-modify-write, so a second tab's panels are not clobbered, and drop stale entries.
+  function writeStore(uid, entry) {
+    try {
+      var all = readStore();
+      if (entry) { all[uid] = entry; } else { delete all[uid]; }
+      var cutoff = Date.now() - STORE_TTL;
+      Object.keys(all).forEach(function (k) { if (!all[k] || !(all[k].t > cutoff)) { delete all[k]; } });
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(all));
+    } catch (e) { /* private mode / quota — persistence is best effort */ }
+  }
+
+  function panelUid(ov) {
+    if (!ov._tdUid) { ov._tdUid = "p" + (++uidSeq) + "-" + Date.now(); }
+    return ov._tdUid;
+  }
+
+  function dropStored(ov) {
+    if (ov && ov._tdUid) { writeStore(ov._tdUid, null); ov._tdUid = null; }
+  }
+
   // Clicking the backdrop dismisses the quality picker, but once work is under way (the panel
   // reports a status) it minimises instead — a stray click must never throw away a transcode.
   function backdrop(ov) {
@@ -408,11 +447,11 @@
       body: JSON.stringify({ itemId: itemId, height: height })
     })
       .then(function (r) { if (!r.ok) { return r.text().then(function (t) { throw new Error(t || r.status); }); } return r.json(); })
-      .then(function (j) { showProgress(j.jobId, ov, c); })
+      .then(function (j) { showProgress(j.jobId, ov, c, { item: itemId, h: height, file: j.filename }); })
       .catch(function (err) { fail(c, "Start failed: " + err.message); });
   }
 
-  function showProgress(jobId, ov, c) {
+  function showProgress(jobId, ov, c, meta) {
     c.innerHTML =
       '<div style="font-size:1.05em;font-weight:600;margin-bottom:1em;">Transcoding…</div>' +
       '<div style="background:#1b2128;border-radius:6px;height:10px;overflow:hidden;margin-bottom:.6em;"><div id="td-bar" style="height:100%;width:0;background:' + ACCENT + ';transition:width .3s;"></div></div>' +
@@ -423,6 +462,15 @@
     // What the header badge shows while this panel is minimised.
     var st = { running: 1, ready: 0, failed: 0, percent: 0 };
     ov._tdStatus = function () { return st; };
+
+    // Remember the job so a page reload can pick it back up.
+    if (meta) {
+      writeStore(panelUid(ov), {
+        t: Date.now(),
+        height: meta.h,
+        jobs: [{ id: jobId, name: meta.file, file: meta.file, item: meta.item }]
+      });
+    }
 
     var timer = setInterval(function () {
       fetch(svc("/Jobs/" + jobId))
@@ -628,89 +676,143 @@
     return s;
   }
 
+  // Starts a transcode for every episode of a "Download all" batch.
   function startAllJobs(children, height, ov, c) {
+    jobPanel(
+      ov,
+      c,
+      "Transcoding " + children.length + " episodes…",
+      "A download icon appears as each one finishes; a failed episode shows a retry icon.",
+      children.map(function (ch) { return { item: ch.id, name: ch.name }; }),
+      height);
+  }
+
+  // One list panel for a set of transcode jobs. An entry is either fresh (an item still to start)
+  // or an already-running job picked up from localStorage after a reload, so the batch download
+  // and the restored panel run through the same code.
+  function jobPanel(ov, c, title, sub, entries, height) {
     c.innerHTML =
-      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;">Transcoding ' + children.length + ' episodes…</div>' +
-      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">A download icon appears as each one finishes; a failed episode shows a retry icon.</div>';
+      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;"></div>' +
+      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;"></div>';
+    c.children[0].textContent = title;
+    c.children[1].textContent = sub;
 
     var list = document.createElement("div");
     list.style.cssText = "max-height:48vh;overflow-y:auto;padding-right:12px;margin-bottom:.7em;";
     c.appendChild(list);
 
-    var total = children.length;
+    var total = entries.length;
     var finished = [];
     var tracked = [];
     var batch = { stopped: false };
     var allBtn = null;
+    var uid = panelUid(ov);
+
+    // Only job ids and display names are stored, never the token.
+    function persist() {
+      var jobs = [];
+      tracked.forEach(function (r) {
+        if (r.jobId && !r.failed) { jobs.push({ id: r.jobId, name: r.name, file: r.file, item: r.item }); }
+      });
+      writeStore(uid, jobs.length ? { t: Date.now(), height: height, jobs: jobs } : null);
+    }
 
     // "Download all" stays locked until every episode has transcoded successfully.
     function updateButton() {
       if (!allBtn) { return; }
       var done = finished.length === total;
-      allBtn.textContent = "Download all (" + finished.length + "/" + total + ")";
+      allBtn.textContent = total > 1
+        ? "Download all (" + finished.length + "/" + total + ")"
+        : (done ? "Download" : "Transcoding…");
       allBtn.disabled = !done;
       allBtn.style.opacity = done ? "1" : ".45";
       allBtn.style.cursor = done ? "pointer" : "default";
     }
 
-    function onFail(ch, row, rec) {
+    function onFail(rec) {
       rec.done = false;
       rec.failed = true;
-      setStatus(row, statusEl(ICON_RETRY, "Transcode failed — retry", "#ff6b6b", function () { startOne(ch, row, rec); }));
+      // A job restored from storage without its item id cannot be re-submitted, so it just reads
+      // as failed instead of offering a retry that would go nowhere.
+      if (rec.item) {
+        setStatus(rec.row, statusEl(ICON_RETRY, "Transcode failed — retry", "#ff6b6b", function () { startOne(rec); }));
+      } else {
+        setStatus(rec.row, statusText("failed"));
+      }
+
       updateButton();
+      persist();
     }
 
-    function poll(jobId, filename, ch, row, st, rec) {
-      var url = svc("/Jobs/" + jobId + "/File");
-      rec.timer = setInterval(function () {
-        fetch(svc("/Jobs/" + jobId))
-          .then(function (r) { return r.json(); })
+    function poll(rec) {
+      var url = svc("/Jobs/" + rec.jobId + "/File");
+      var st = statusText("queued");
+      setStatus(rec.row, st);
+      function check() {
+        fetch(svc("/Jobs/" + rec.jobId))
+          .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (s) {
+            if (!s) { return; }
             if (s.state === "queued") { st.textContent = "queued"; }
             else if (s.state === "running") { st.textContent = (s.progress || 0) + "%"; }
             else if (s.state === "done") {
               clearInterval(rec.timer); rec.timer = null; rec.done = true;
-              finished.push({ url: url, filename: filename });
-              setStatus(row, statusEl(ICON_DOWNLOAD, "Download", ACCENT, function () { triggerDownload(url, filename); }));
+              rec.file = s.filename || rec.file;
+              finished.push({ url: url, filename: rec.file });
+              setStatus(rec.row, statusEl(ICON_DOWNLOAD, "Download", ACCENT, function () { triggerDownload(url, rec.file); }));
               updateButton();
             }
-            else if (s.state === "error") { clearInterval(rec.timer); rec.timer = null; onFail(ch, row, rec); }
+            else if (s.state === "error") { clearInterval(rec.timer); rec.timer = null; onFail(rec); }
             else if (s.state === "cancelled") { clearInterval(rec.timer); rec.timer = null; }
           })
           .catch(function () { /* keep polling */ });
-      }, 2000);
+      }
+
+      rec.timer = setInterval(check, 2000);
+      check();   // a restored job that already finished shows its download icon straight away
     }
 
-    function startOne(ch, row, rec) {
+    function startOne(rec) {
       if (rec.timer) { clearInterval(rec.timer); rec.timer = null; }
       rec.done = false; rec.failed = false; rec.jobId = null;
-      var st = statusText("queued");
-      setStatus(row, st);
+      setStatus(rec.row, statusText("queued"));
       fetch(svc("/Jobs"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: ch.id, height: height, bulk: true })
+        body: JSON.stringify({ itemId: rec.item, height: height, bulk: total > 1 })
       })
         .then(function (r) { if (!r.ok) { return r.text().then(function (t) { throw new Error(t || r.status); }); } return r.json(); })
         .then(function (j) {
           rec.jobId = j.jobId;
+          rec.file = j.filename;
           if (batch.stopped) { fetch(svc("/Jobs/" + j.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); return; }
-          poll(j.jobId, j.filename, ch, row, st, rec);
+          poll(rec);
+          persist();
         })
-        .catch(function () { onFail(ch, row, rec); });
+        .catch(function () { onFail(rec); });
     }
 
-    children.forEach(function (ch) {
+    entries.forEach(function (en) {
       var row = document.createElement("div");
       row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.45em 0;border-top:1px solid rgba(255,255,255,.07);font-size:.82em;";
+      var label = en.name || en.file || "video";
       var name = document.createElement("span");
-      name.textContent = ch.name;
+      name.textContent = label;
       name.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
       row.appendChild(name);
       list.appendChild(row);
-      var rec = { jobId: null, timer: null, done: false, failed: false };
+      var rec = {
+        item: en.item || null,
+        name: label,
+        file: en.file || "",
+        jobId: en.jobId || null,
+        timer: null,
+        done: false,
+        failed: false,
+        row: row
+      };
       tracked.push(rec);
-      startOne(ch, row, rec);
+      if (rec.jobId) { poll(rec); } else { startOne(rec); }
     });
 
     // Stop polling and cancel anything still running/queued, so closing the dialog frees the server.
@@ -759,6 +861,57 @@
     footer.appendChild(close);
     c.appendChild(footer);
   }
+
+  // ---- pick panels back up after a reload -----------------------------------
+  function openRestored(uid, entry, jobs) {
+    var ov = overlay();
+    var c = card();
+    ov._tdUid = uid;                 // keep the same storage entry instead of creating a second one
+    ov.style.display = "none";       // set before it is attached, so nothing flashes on load
+    ov.appendChild(c);
+    ov.addEventListener("click", backdrop(ov));
+    document.body.appendChild(ov);
+    jobPanel(
+      ov,
+      c,
+      jobs.length > 1 ? jobs.length + " downloads" : "Download",
+      "Picked up again after the page reloaded.",
+      jobs.map(function (j) { return { item: j.item, name: j.name, file: j.file, jobId: j.id }; }),
+      entry.height);
+    minimize(ov);                    // never take over the screen on load; the badge is the signal
+  }
+
+  function rehydrate() {
+    var all = readStore();
+    Object.keys(all).forEach(function (uid) {
+      var entry = all[uid];
+      if (!entry || !entry.jobs || !entry.jobs.length) { writeStore(uid, null); return; }
+      Promise.all(entry.jobs.map(function (j) {
+        return fetch(svc("/Jobs/" + j.id))
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+      })).then(function (states) {
+        var alive = [];
+        states.forEach(function (s, i) {
+          if (s && (s.state === "done" || s.state === "running" || s.state === "queued")) { alive.push(entry.jobs[i]); }
+        });
+        // The server no longer knows any of them (restart, cleanup, cancelled): forget the panel.
+        if (!alive.length) { writeStore(uid, null); return; }
+        openRestored(uid, entry, alive);
+      });
+    });
+  }
+
+  // The script is injected into index.html and can run before Jellyfin has a session, so wait for
+  // a token before asking the server about our jobs. Gives up quietly after ~30s (login screen).
+  (function whenSignedIn() {
+    var tries = 0;
+    (function wait() {
+      if (token()) { rehydrate(); return; }
+      if (++tries > 60) { return; }
+      setTimeout(wait, 500);
+    })();
+  })();
 
   console.log("[TranscodeDownloader] client loaded");
 })();
