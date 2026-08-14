@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.3.1",
+        "changelog": "- **Minimize a transcode**: the progress dialog no longer holds the screen for the whole transcode.\n  **Minimize** parks it — the transcode keeps running — and a download icon with a progress badge\n  appears in the header. Click it to bring the panel back; the badge turns green when the file is\n  ready. Clicking outside the dialog now minimizes it too, so a stray click can no longer throw away\n  a transcode. **Cancel** is still the only thing that stops a job. Works for single downloads and\n  for \"Download all\".\n- **Reloading the page no longer loses a transcode**: after a refresh — or when you come back to\n  Jellyfin later — running and finished downloads are picked up again and wait behind the same\n  header icon, so a file that finished while you were away is still one click away.\n\n  Thanks to [@ndom91](https://github.com/ndom91) for the suggestion.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.1/transcode-downloader_1.2.3.1.zip",
+        "checksum": "04d9080bce28c7a92ec4c0661633c294",
+        "timestamp": "2026-08-14T15:40:05.0000000Z"
+      },
+      {
         "version": "1.2.2.1",
         "changelog": "- **Fixed**: the plugin failed to load — showing status **\"NotSupported\"** — on any Jellyfin 10.11.x\n  release older than the exact patch it was built against (e.g. on 10.11.8). It was compiled against\n  too new a Jellyfin version; it now targets the minimum 10.11 and loads on every 10.11.x server.\n\n  Thanks to [@riendril](https://github.com/riendril) for the detailed report and fix.",
         "targetAbi": "10.11.0.0",
