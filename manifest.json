@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.3.0",
+        "changelog": "- **Downloads no longer hold the screen.** The progress dialog can be **minimized**: the transcode\n  keeps running and a download icon with a progress badge appears in Jellyfin's header, so you can\n  keep browsing or watching. Click the icon to come back — the badge turns green as soon as files\n  are ready. Clicking outside the panel minimizes it too, so a stray click can no longer throw away\n  a transcode.\n- **One Downloads panel for everything.** Every download you start is a group in the same panel,\n  headed with its movie, series or season, so starting a second batch no longer hides the first.\n  Each group shows its own progress and can be cancelled on its own with **✕**, while the header\n  badge reflects the whole queue.\n- **Reloading the page no longer loses a download.** After a refresh — or when you come back to\n  Jellyfin later — running and finished downloads are picked up again behind that same icon, so a\n  file that finished while you were away is still one click away.\n- **Clearer buttons**: the button that closes a panel now reads **Cancel** while transcodes are\n  still running (it stops them) and only becomes **Close** once everything has finished.\n\n  Thanks to [@ndom91](https://github.com/ndom91) for suggesting this.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3/transcode-downloader_1.2.3.0.zip",
+        "checksum": "124ba465bccc4406fc093642d3ffcccd",
+        "timestamp": "2026-08-16T13:06:40.0000000Z"
+      },
+      {
         "version": "1.2.2.0",
         "changelog": "- **Fixed**: the plugin failed to load — showing status **\"NotSupported\"** — on any Jellyfin 10.11.x\n  release older than the exact patch it was built against (for example on 10.11.8). It was compiled\n  against too new a Jellyfin version; it now targets the minimum 10.11 and loads on every 10.11.x\n  server.\n\n  Thanks to [@riendril](https://github.com/riendril) for the detailed report and fix.",
         "targetAbi": "10.11.0.0",
