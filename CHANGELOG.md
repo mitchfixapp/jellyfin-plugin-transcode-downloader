@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.3-beta.4 - 2026-08-16
+- **Fixed**: downloading a single episode headed its group with the episode title instead of the
+  series, so the panel read "Road Rage Vigilante or Family Protector?" twice with no clue which show
+  it belonged to. The group is now headed with the series and the episode names its own row.
+
 ## v1.2.3-beta.3 - 2026-08-16
 - **One Downloads panel for everything**: every download you start now lands in a single panel, one
   group per movie, series or season, each labelled with its own title. Starting a second batch while

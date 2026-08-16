@@ -96,10 +96,18 @@ public sealed class TranscodeManager : IDisposable
         var item = _libraryManager.GetItemById(itemId);
         if (item is Video video)
         {
+            // An episode's own name says nothing on its own once it heads a group next to other
+            // downloads ("Road Rage Vigilante?"), so the group is headed with the series and the
+            // episode identifies its row.
+            var header = video is Episode e && !string.IsNullOrWhiteSpace(e.SeriesName)
+                ? e.SeriesName
+                : video.Name ?? string.Empty;
+
             return new DownloadOptions
             {
                 Kind = "video",
-                Name = video.Name ?? string.Empty,
+                Name = header,
+                ItemLabel = BuildChildName(video),
                 ShowOriginal = Config.ShowOriginal,
                 Presets = FilterPresets(GetSourceWidth(video))
             };

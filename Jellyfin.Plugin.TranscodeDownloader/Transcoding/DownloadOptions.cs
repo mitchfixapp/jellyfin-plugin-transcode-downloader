@@ -9,8 +9,14 @@ public sealed class DownloadOptions
     /// <summary>Gets or sets the item kind: <c>"video"</c> for a movie/episode, <c>"folder"</c> for a series/season.</summary>
     public string Kind { get; set; } = "video";
 
-    /// <summary>Gets or sets the item's display name, used to label its download panel.</summary>
+    /// <summary>
+    /// Gets or sets the name the download group is headed with: the series for an episode or a
+    /// season, otherwise the item itself.
+    /// </summary>
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the name of the single item's own row (e.g. <c>"S05E05 Road Rage"</c>).</summary>
+    public string ItemLabel { get; set; } = string.Empty;
 
     /// <summary>Gets or sets a value indicating whether the "Original" (no transcode) option is offered.</summary>
     public bool ShowOriginal { get; set; }

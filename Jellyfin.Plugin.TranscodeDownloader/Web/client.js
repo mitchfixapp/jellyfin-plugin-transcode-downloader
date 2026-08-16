@@ -388,10 +388,11 @@
         b.addEventListener("click", function () {
           closePicker(ov);
           addGroup({
+            // Header names the series (or the movie); the row names the episode itself.
             label: (o.name || "Download") + " · " + p.label,
             height: p.height,
             auto: true,                       // a single pick downloads itself when it is ready
-            entries: [{ item: itemId, name: o.name || "video" }]
+            entries: [{ item: itemId, name: o.label || o.name || "video" }]
           });
         });
         c.appendChild(b);
