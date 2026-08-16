@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.3.3",
+        "changelog": "- **One Downloads panel for everything**: every download you start now lands in a single panel, one\n  group per movie, series or season, each labelled with its own title. Starting a second batch while\n  the first is still running no longer hides the first — they sit under each other, the header badge\n  reflects the whole queue, and each group can be dropped on its own with its ✕ while the rest keeps\n  going.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.3/transcode-downloader_1.2.3.3.zip",
+        "checksum": "869ebd5da05610a013e6d31fa485dab7",
+        "timestamp": "2026-08-16T12:23:41.0000000Z"
+      },
+      {
         "version": "1.2.3.2",
         "changelog": "- **Fixed**: the progress badge on the header icon stayed on 0% for a \"Download all\" batch until a\n  whole episode had finished. It now follows the actual progress of the episodes being transcoded,\n  and when several downloads are minimized at once the percentage is weighted by how much work each\n  one represents.\n- The button that closes a download panel now reads **Cancel** while transcodes are still running —\n  it stops them — and only becomes **Close** once everything has finished.",
         "targetAbi": "10.11.0.0",
