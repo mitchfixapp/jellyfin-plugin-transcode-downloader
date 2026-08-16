@@ -3,6 +3,8 @@
  * Hijacks Jellyfin's native Download action (toolbar button .btnDownload and the
  * "..." menu item) on movie/episode detail pages and opens a quality picker:
  * "Original" (direct download) or a server-side transcoded, smaller MP4.
+ * Everything that is started lands in one "Downloads" panel — one group per movie, series or
+ * season — which can be minimised to a button in Jellyfin's header and reopened from there.
  * Served by the plugin at /TranscodeDownloader/ClientScript and injected into index.html.
  */
 (function () {
@@ -127,18 +129,11 @@
   window.addEventListener("hashchange", function () { pendingMenuId = null; warm(urlItemId()); });
   warm(urlItemId());
 
-  // ---- dialog --------------------------------------------------------------
+  // ---- shared bits ---------------------------------------------------------
   function overlay() {
     var o = document.createElement("div");
     o.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);";
     return o;
-  }
-  function closeOverlay(ov) {
-    // Single exit for every dialog: run any registered cleanup (stop polling, cancel jobs), then
-    // remove the overlay. So closing via the backdrop is as safe as the Cancel/Close buttons.
-    if (!ov) { return; }
-    if (ov._tdCleanup) { try { ov._tdCleanup(); } catch (e) { /* noop */ } ov._tdCleanup = null; }
-    if (ov.parentNode) { ov.parentNode.removeChild(ov); }
   }
   function card() {
     var c = document.createElement("div");
@@ -163,46 +158,38 @@
     }
     return b;
   }
-
-  function openDialog(itemId) {
-    var tok = token();
-    if (!itemId || !tok) { alert("Could not determine the item or session. Open a movie/episode first."); return; }
-    getOptions(itemId).then(function (o) {
-      if (!o || !o.downloadable) { alert("This item cannot be downloaded."); return; }
-      var ov = overlay();
-      var c = card();
-      c.innerHTML =
-        '<div style="font-size:1.1em;font-weight:600;margin-bottom:.2em;">Download</div>' +
-        '<div style="opacity:.6;font-size:.85em;margin-bottom:1em;">Original, or a smaller server-side transcode.</div>';
-
-      if (o.showOriginal) {
-        var orig = optionButton("Original", "full file, no transcode — largest");
-        orig.addEventListener("click", function () { downloadOriginal(itemId, tok, ov); });
-        c.appendChild(orig);
-      }
-      (o.presets || []).forEach(function (p) {
-        var b = optionButton(p.label, "transcoded — smaller");
-        b.addEventListener("click", function () { startJob(itemId, p.height, ov, c); });
-        c.appendChild(b);
-      });
-
-      var cancel = document.createElement("button");
-      cancel.type = "button";
-      cancel.textContent = "Cancel";
-      cancel.style.cssText = "width:100%;margin-top:.3em;background:transparent;color:#9aa;border:0;padding:.6em;cursor:pointer;";
-      cancel.addEventListener("click", function () { closeOverlay(ov); });
-      c.appendChild(cancel);
-      ov.appendChild(c);
-      ov.addEventListener("click", function (e) { if (e.target === ov) { closeOverlay(ov); } });
-      document.body.appendChild(ov);
-    });
+  function textButton(label, kind) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.style.cssText = (kind === "primary"
+      ? "flex:1;background:" + ACCENT + ";color:#fff;font-weight:600;"
+      : "flex:none;background:#1b2128;color:#fff;") + "border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
+    return b;
+  }
+  function statusEl(svgPath, title, color, onClick) {
+    var a = document.createElement("a");
+    a.href = "#";
+    a.title = title;
+    a.style.cssText = "flex:none;display:inline-flex;align-items:center;justify-content:flex-end;min-width:4.5em;color:" + color + ";cursor:pointer;";
+    a.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="' + svgPath + '"/></svg>';
+    a.addEventListener("click", function (e) { e.preventDefault(); onClick(); });
+    return a;
+  }
+  function statusText(text) {
+    var s = document.createElement("span");
+    s.textContent = text;
+    s.style.cssText = "flex:none;opacity:.6;min-width:4.5em;text-align:right;";
+    return s;
+  }
+  function setStatus(row, el) {
+    if (row.tdStatus && row.tdStatus.parentNode === row) { row.replaceChild(el, row.tdStatus); }
+    else { row.appendChild(el); }
+    row.tdStatus = el;
   }
 
-  function downloadOriginal(itemId, tok, ov) {
-    var url = base() + "/Items/" + itemId + "/Download?api_key=" + encodeURIComponent(tok);
-    triggerDownload(url);
-    closeOverlay(ov);
-  }
+  var ICON_DOWNLOAD = "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
+  var ICON_RETRY = "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z";
 
   function isNativeApp() {
     return !!(window.NativeShell && typeof window.NativeShell.openUrl === "function");
@@ -226,96 +213,203 @@
     document.body.removeChild(a);
   }
 
-  // ---- job + progress ------------------------------------------------------
-  function startJob(itemId, height, ov, c) {
-    c.innerHTML = '<div style="font-size:1.05em;font-weight:600;">Preparing (' + height + "p)…</div>";
-    fetch(svc("/Jobs"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId: itemId, height: height })
-    })
-      .then(function (r) { if (!r.ok) { return r.text().then(function (t) { throw new Error(t || r.status); }); } return r.json(); })
-      .then(function (j) { showProgress(j.jobId, ov, c); })
-      .catch(function (err) { fail(c, "Start failed: " + err.message); });
+  // ---- storage: survive a page reload ---------------------------------------
+  // A hard reload throws the panel away while the transcodes keep running on the server and their
+  // finished files stay in the cache for days, so every group writes its job ids to localStorage
+  // and picks them up on the next load. Only ids and display names are stored, never the token.
+  var STORE_KEY = "tdTranscodePanels";
+  var STORE_TTL = 2 * 24 * 3600 * 1000;   // well inside the server's default 7-day retention
+  var uidSeq = 0;
+
+  function readStore() {
+    try {
+      var raw = window.localStorage.getItem(STORE_KEY);
+      var o = raw ? JSON.parse(raw) : null;
+      return (o && typeof o === "object") ? o : {};
+    } catch (e) { return {}; }
   }
 
-  function showProgress(jobId, ov, c) {
-    c.innerHTML =
-      '<div style="font-size:1.05em;font-weight:600;margin-bottom:1em;">Transcoding…</div>' +
-      '<div style="background:#1b2128;border-radius:6px;height:10px;overflow:hidden;margin-bottom:.6em;"><div id="td-bar" style="height:100%;width:0;background:' + ACCENT + ';transition:width .3s;"></div></div>' +
-      '<div id="td-status" style="opacity:.7;font-size:.85em;margin-bottom:1em;">Working…</div>';
-    var bar = c.querySelector("#td-bar");
-    var status = c.querySelector("#td-status");
-    var timer = setInterval(function () {
-      fetch(svc("/Jobs/" + jobId))
-        .then(function (r) { return r.json(); })
-        .then(function (s) {
-          if (s.state === "running" || s.state === "queued") {
-            if (bar) { bar.style.width = (s.progress || 0) + "%"; }
-            if (status) { status.textContent = s.state === "queued" ? "Queued…" : "Transcoding… " + (s.progress || 0) + "%"; }
-          } else if (s.state === "done") {
-            clearInterval(timer); ov._tdCleanup = null; if (bar) { bar.style.width = "100%"; } done(c, jobId, s.filename);
-          } else if (s.state === "error") {
-            clearInterval(timer); ov._tdCleanup = null; fail(c, "Transcode failed: " + (s.error || "unknown"));
-          } else if (s.state === "cancelled") {
-            clearInterval(timer); ov._tdCleanup = null; fail(c, "Cancelled.");
-          }
-        })
-        .catch(function () { /* keep polling */ });
-    }, 1500);
-
-    // Closing the dialog any way (Cancel button or backdrop click) stops the poll and cancels the
-    // job; cleared above once the job reaches a terminal state so a finished download is not undone.
-    ov._tdCleanup = function () {
-      clearInterval(timer);
-      fetch(svc("/Jobs/" + jobId), { method: "DELETE" }).catch(function () { /* noop */ });
-    };
-
-    var cancel = document.createElement("button");
-    cancel.type = "button";
-    cancel.textContent = "Cancel";
-    cancel.style.cssText = "width:100%;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;";
-    cancel.addEventListener("click", function () { closeOverlay(ov); });
-    c.appendChild(cancel);
+  // Read-modify-write, so a second tab's groups are not clobbered, and drop stale entries.
+  function writeStore(uid, entry) {
+    try {
+      var all = readStore();
+      if (entry) { all[uid] = entry; } else { delete all[uid]; }
+      var cutoff = Date.now() - STORE_TTL;
+      Object.keys(all).forEach(function (k) { if (!all[k] || !(all[k].t > cutoff)) { delete all[k]; } });
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(all));
+    } catch (e) { /* private mode / quota — persistence is best effort */ }
   }
 
-  function done(c, jobId, filename) {
-    c.innerHTML = '<div style="font-size:1.05em;font-weight:600;margin-bottom:.3em;">Ready ✓</div>';
-    var fn = document.createElement("div");
-    fn.style.cssText = "opacity:.7;font-size:.85em;margin-bottom:1em;word-break:break-all;";
-    fn.textContent = filename || "file";
-    c.appendChild(fn);
-    var url = svc("/Jobs/" + jobId + "/File");
-    var dl = document.createElement("a");
-    dl.href = url;
-    dl.setAttribute("download", filename || "");
-    dl.textContent = "Start download";
-    dl.style.cssText = "display:block;text-align:center;background:" + ACCENT + ";color:#fff;text-decoration:none;border-radius:8px;padding:.7em;font-weight:600;margin-bottom:.4em;";
-    dl.addEventListener("click", function (e) { e.preventDefault(); triggerDownload(url, filename); });
-    c.appendChild(dl);
-    var close = document.createElement("button");
-    close.textContent = "Close";
-    close.style.cssText = "width:100%;background:transparent;color:#9aa;border:0;padding:.5em;cursor:pointer;";
-    close.addEventListener("click", function () { closeOverlay(c.parentNode); });
-    c.appendChild(close);
-    // Auto-start in browsers; in the native app wait for an explicit tap (openUrl switches apps).
-    if (!isNativeApp()) { triggerDownload(url, filename); }
+  // ---- minimise + header indicator ------------------------------------------
+  // Minimising must NOT cancel anything: the panel is hidden (display:none), never removed, so
+  // every poll timer and row keeps working and restoring is a display flip. While it is hidden a
+  // button with a progress badge sits in Jellyfin's header. Jellyfin re-renders its header on
+  // navigation, so a 1s ticker re-attaches the button and repaints the badge — simpler and more
+  // predictable than a MutationObserver, and it only runs while the panel is actually minimised.
+  var minimizedPanel = null;
+  var headerBtn = null;
+  var headerBadge = null;
+  var headerTimer = null;
+
+  function minimize(ov) {
+    if (!ov || minimizedPanel === ov) { return; }
+    ov.style.display = "none";
+    minimizedPanel = ov;
+    tick();
   }
 
-  function fail(c, msg) {
-    c.innerHTML = "";
-    var m = document.createElement("div");
-    m.style.cssText = "color:#ff6b6b;font-weight:600;margin-bottom:.8em;";
-    m.textContent = msg;
-    c.appendChild(m);
-    var close = document.createElement("button");
-    close.textContent = "Close";
-    close.style.cssText = "width:100%;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;";
-    close.addEventListener("click", function () { closeOverlay(c.parentNode); });
-    c.appendChild(close);
+  function restore() {
+    var ov = minimizedPanel;
+    if (!ov) { return; }
+    minimizedPanel = null;
+    ov.style.display = "flex";
+    tick();
+    // Transcodes that finished while the panel was hidden deliberately did not auto-download: with
+    // no user gesture behind them the browser blocks that. Reopening IS the gesture.
+    if (ov._tdFlush) { try { ov._tdFlush(); } catch (e) { /* noop */ } }
   }
 
-  // ---- download all (series / season) --------------------------------------
+  function forget(ov) {
+    if (minimizedPanel === ov) { minimizedPanel = null; tick(); }
+  }
+
+  function headerHost() {
+    return document.querySelector(".headerRight")
+      || document.querySelector(".skinHeader .headerButtons")
+      || document.querySelector(".skinHeader");
+  }
+
+  function isVisible(el) {
+    return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  }
+
+  var HEADER_STYLE = "position:relative;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;color:inherit;cursor:pointer;padding:.4em;";
+  var FLOAT_STYLE = "position:fixed;right:1.2em;bottom:1.2em;z-index:2147483646;display:inline-flex;align-items:center;justify-content:center;background:#101418;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:.6em;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5);";
+
+  // Jellyfin hides .headerRight on some screens (they carry a "noHeaderRight" header) and the
+  // player has none at all. Losing the only way back to a running transcode there would be worse
+  // than an out-of-place button, so it falls back to a floating pill and hops back into the header
+  // as soon as one is visible again.
+  function place() {
+    var host = headerHost();
+    if (isVisible(host)) {
+      if (headerBtn.parentNode !== host) {
+        headerBtn.style.cssText = HEADER_STYLE;
+        host.insertBefore(headerBtn, host.firstChild);
+      }
+    } else if (headerBtn.parentNode !== document.body) {
+      headerBtn.style.cssText = FLOAT_STYLE;
+      document.body.appendChild(headerBtn);
+    }
+  }
+
+  function buildHeaderButton() {
+    var b = document.createElement("button");
+    b.type = "button";
+    // Jellyfin's own header-button classes give the right size and hover; the inline styles keep
+    // it sane on skins that do not define them.
+    b.className = "paper-icon-button-light headerButton headerButtonRight";
+    b.setAttribute("data-td-header", "1");
+    b.style.cssText = HEADER_STYLE;
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="' + ICON_DOWNLOAD + '"/></svg>';
+    var badge = document.createElement("span");
+    badge.style.cssText = "position:absolute;top:0;right:0;min-width:1.5em;height:1.5em;padding:0 .3em;border-radius:1em;background:" + ACCENT + ";color:#fff;font-size:.6em;font-weight:700;line-height:1.5em;text-align:center;box-sizing:border-box;";
+    b.appendChild(badge);
+    b.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      restore();
+    });
+    headerBadge = badge;
+    return b;
+  }
+
+  function tick() {
+    if (!minimizedPanel) {
+      if (headerTimer) { clearInterval(headerTimer); headerTimer = null; }
+      if (headerBtn && headerBtn.parentNode) { headerBtn.parentNode.removeChild(headerBtn); }
+      headerBtn = null;
+      headerBadge = null;
+      return;
+    }
+
+    if (!headerBtn) { headerBtn = buildHeaderButton(); }
+    place();
+
+    var s = minimizedPanel._tdStatus ? minimizedPanel._tdStatus() : { running: 0, ready: 0, failed: 0, percent: 100 };
+    if (headerBadge) {
+      if (s.running > 0) {
+        headerBadge.textContent = s.percent + "%";
+        headerBadge.style.background = ACCENT;
+      } else if (s.failed > 0 && s.ready === 0) {
+        headerBadge.textContent = "!";
+        headerBadge.style.background = "#ff6b6b";
+      } else {
+        headerBadge.textContent = "✓";
+        headerBadge.style.background = "#3ecf6d";
+      }
+    }
+
+    var bits = [];
+    if (s.running > 0) { bits.push(s.running + " transcoding (" + s.percent + "%)"); }
+    if (s.ready > 0) { bits.push(s.ready + " ready"); }
+    if (s.failed > 0) { bits.push(s.failed + " failed"); }
+    headerBtn.title = "Transcode Downloader — " + (bits.join(", ") || "working") + ". Click to open.";
+
+    if (!headerTimer) { headerTimer = setInterval(tick, 1000); }
+  }
+
+  // ---- the quality pickers ---------------------------------------------------
+  function closePicker(ov) {
+    if (ov && ov.parentNode) { ov.parentNode.removeChild(ov); }
+  }
+
+  function openDialog(itemId) {
+    var tok = token();
+    if (!itemId || !tok) { alert("Could not determine the item or session. Open a movie/episode first."); return; }
+    getOptions(itemId).then(function (o) {
+      if (!o || !o.downloadable) { alert("This item cannot be downloaded."); return; }
+      var ov = overlay();
+      var c = card();
+      c.innerHTML =
+        '<div style="font-size:1.1em;font-weight:600;margin-bottom:.2em;">Download</div>' +
+        '<div style="opacity:.6;font-size:.85em;margin-bottom:1em;">Original, or a smaller server-side transcode.</div>';
+
+      if (o.showOriginal) {
+        var orig = optionButton("Original", "full file, no transcode — largest");
+        orig.addEventListener("click", function () {
+          triggerDownload(base() + "/Items/" + itemId + "/Download?api_key=" + encodeURIComponent(tok));
+          closePicker(ov);
+        });
+        c.appendChild(orig);
+      }
+      (o.presets || []).forEach(function (p) {
+        var b = optionButton(p.label, "transcoded — smaller");
+        b.addEventListener("click", function () {
+          closePicker(ov);
+          addGroup({
+            // Header names the series (or the movie); the row names the episode itself.
+            label: (o.name || "Download") + " · " + p.label,
+            height: p.height,
+            auto: true,                       // a single pick downloads itself when it is ready
+            entries: [{ item: itemId, name: o.label || o.name || "video" }]
+          });
+        });
+        c.appendChild(b);
+      });
+
+      var cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = "Cancel";
+      cancel.style.cssText = "width:100%;margin-top:.3em;background:transparent;color:#9aa;border:0;padding:.6em;cursor:pointer;";
+      cancel.addEventListener("click", function () { closePicker(ov); });
+      c.appendChild(cancel);
+      ov.appendChild(c);
+      ov.addEventListener("click", function (e) { if (e.target === ov) { closePicker(ov); } });
+      document.body.appendChild(ov);
+    });
+  }
+
   function openAllDialog(itemId) {
     var tok = token();
     if (!itemId || !tok) { alert("Could not determine the item or session. Open a series or season first."); return; }
@@ -327,18 +421,30 @@
       var ov = overlay();
       var c = card();
       c.innerHTML =
-        '<div style="font-size:1.1em;font-weight:600;margin-bottom:.2em;">Download all</div>' +
-        '<div style="opacity:.6;font-size:.85em;margin-bottom:1em;">' + o.children.length + ' episodes. Pick a quality for the whole set.</div>';
+        '<div style="font-size:1.1em;font-weight:600;margin-bottom:.2em;"></div>' +
+        '<div style="opacity:.6;font-size:.85em;margin-bottom:1em;"></div>';
+      c.children[0].textContent = "Download all";
+      c.children[1].textContent = (o.name ? o.name + " — " : "") + o.children.length + " episodes. Pick a quality for the whole set.";
 
       if (o.showOriginal) {
         var orig = optionButton("Original", o.children.length + " episodes, full files — no transcode");
-        orig.addEventListener("click", function () { startAllOriginals(o.children, tok, ov, c); });
+        orig.addEventListener("click", function () {
+          closePicker(ov);
+          addOriginalsGroup(o.name || "Originals", o.children, tok);
+        });
         c.appendChild(orig);
       }
 
       (o.presets || []).forEach(function (p) {
         var b = optionButton(p.label, o.children.length + " episodes, transcoded");
-        b.addEventListener("click", function () { startAllJobs(o.children, p.height, ov, c); });
+        b.addEventListener("click", function () {
+          closePicker(ov);
+          addGroup({
+            label: (o.name || "Episodes") + " · " + p.label,
+            height: p.height,
+            entries: o.children.map(function (ch) { return { item: ch.id, name: ch.name }; })
+          });
+        });
         c.appendChild(b);
       });
 
@@ -346,204 +452,418 @@
       cancel.type = "button";
       cancel.textContent = "Cancel";
       cancel.style.cssText = "width:100%;margin-top:.3em;background:transparent;color:#9aa;border:0;padding:.6em;cursor:pointer;";
-      cancel.addEventListener("click", function () { closeOverlay(ov); });
+      cancel.addEventListener("click", function () { closePicker(ov); });
       c.appendChild(cancel);
       ov.appendChild(c);
+      ov.addEventListener("click", function (e) { if (e.target === ov) { closePicker(ov); } });
       document.body.appendChild(ov);
     });
   }
 
-  // "Download all" -> Original: every episode's original file, no transcode. Each row gets a
-  // download icon; in a browser a single button grabs them all (staggered). On the native apps
-  // the bulk button is hidden because each openUrl switches apps, so the per-episode icons are used.
-  function startAllOriginals(children, tok, ov, c) {
-    c.innerHTML =
-      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;">Download all — Original</div>' +
-      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">The full original file of each episode, no transcode. Use an icon per episode, or grab them all.</div>';
+  // ---- the downloads panel ---------------------------------------------------
+  // One panel holds every batch: a group per movie, series or season, stacked under each other.
+  // So a second "Download all" while the first is still running does not hide the first — both are
+  // in the same list, and the header badge reflects the whole queue.
+  var dock = null;
 
-    var list = document.createElement("div");
-    list.style.cssText = "max-height:48vh;overflow-y:auto;padding-right:12px;margin-bottom:.7em;";
-    c.appendChild(list);
+  function ensureDock() {
+    if (dock && dock.ov.parentNode) { return dock; }
 
+    var ov = overlay();
+    var c = card();
+    c.style.minWidth = "24em";
+    c.innerHTML = '<div style="font-size:1.1em;font-weight:600;margin-bottom:.1em;">Downloads</div>' +
+      '<div style="opacity:.6;font-size:.8em;margin-bottom:.8em;"></div>';
+    var sub = c.children[1];
+
+    var groupList = document.createElement("div");
+    groupList.style.cssText = "max-height:56vh;overflow-y:auto;padding-right:12px;margin-bottom:.8em;";
+    c.appendChild(groupList);
+
+    var footer = document.createElement("div");
+    footer.style.cssText = "display:flex;gap:.5em;";
+    var minBtn = textButton("Minimize", "primary");
+    minBtn.title = "Keep transcoding in the background — reopen from the icon in the header";
+    minBtn.addEventListener("click", function () { minimize(ov); });
+    footer.appendChild(minBtn);
+    var closeBtn = textButton("Cancel all");
+    closeBtn.addEventListener("click", function () { closeDock(); });
+    footer.appendChild(closeBtn);
+    c.appendChild(footer);
+
+    ov.appendChild(c);
+    ov.addEventListener("click", function (e) { if (e.target === ov) { minimize(ov); } });
+    // Attached hidden: a group restored after a reload must not flash the panel on screen before
+    // it is minimised. showDock() is what makes it visible.
+    ov.style.display = "none";
+    document.body.appendChild(ov);
+
+    dock = { ov: ov, card: c, sub: sub, list: groupList, closeBtn: closeBtn, groups: [], pending: [] };
+    ov._tdStatus = dockStatus;
+    ov._tdFlush = function () {
+      var q = dock.pending;
+      dock.pending = [];
+      q.forEach(function (d, i) { setTimeout(function () { triggerDownload(d.url, d.filename); }, i * 800); });
+    };
+    return dock;
+  }
+
+  function showDock() {
+    var d = ensureDock();
+    if (minimizedPanel === d.ov) { restore(); }
+    else { d.ov.style.display = "flex"; }
+    return d;
+  }
+
+  function closeDock() {
+    if (!dock) { return; }
+    // Claim the panel before tearing groups down: removing the last group closes the panel too,
+    // and that must not re-enter this function.
+    var d = dock;
+    dock = null;
+    forget(d.ov);
+    d.groups.forEach(function (g) { if (g.stop) { g.stop(); } });
+    d.groups.length = 0;
+    if (d.ov.parentNode) { d.ov.parentNode.removeChild(d.ov); }
+  }
+
+  function dockStatus() {
+    var out = { running: 0, ready: 0, failed: 0, percent: 0, jobs: 0 };
+    if (!dock) { return out; }
+    var sum = 0;
+    dock.groups.forEach(function (g) {
+      var s = g.status();
+      out.running += s.running;
+      out.ready += s.ready;
+      out.failed += s.failed;
+      sum += s.percent * s.jobs;
+      out.jobs += s.jobs;
+    });
+    out.percent = out.jobs ? Math.round(sum / out.jobs) : 0;
+    return out;
+  }
+
+  // The whole queue in one line, plus an exit button that says what it does: it cancels.
+  function refreshDock() {
+    if (!dock) { return; }
+    var s = dockStatus();
+    var bits = [];
+    if (s.running > 0) { bits.push(s.running + " transcoding · " + s.percent + "%"); }
+    if (s.ready > 0) { bits.push(s.ready + " ready"); }
+    if (s.failed > 0) { bits.push(s.failed + " failed"); }
+    dock.sub.textContent = bits.join("  ·  ") || "nothing running";
+    dock.closeBtn.textContent = s.running > 0 ? "Cancel all" : "Close";
+    dock.closeBtn.title = s.running > 0 ? "Stops every transcode that is still running" : "";
+    dock.groups.forEach(function (g) { g.refresh(); });
+  }
+
+  function groupBox(label) {
+    var box = document.createElement("div");
+    box.style.cssText = "border-top:1px solid rgba(255,255,255,.09);padding:.6em 0 .3em;";
+    var head = document.createElement("div");
+    head.style.cssText = "display:flex;align-items:baseline;gap:.6em;margin-bottom:.3em;";
+    var name = document.createElement("span");
+    name.textContent = label;
+    name.style.cssText = "font-weight:600;font-size:.92em;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    var stat = document.createElement("span");
+    stat.style.cssText = "flex:none;opacity:.55;font-size:.78em;";
+    var kill = document.createElement("button");
+    kill.type = "button";
+    kill.textContent = "✕";
+    kill.title = "Remove this batch";
+    kill.style.cssText = "flex:none;background:transparent;color:#9aa;border:0;padding:0 .2em;cursor:pointer;font-size:.9em;";
+    head.appendChild(name);
+    head.appendChild(stat);
+    head.appendChild(kill);
+    box.appendChild(head);
+    return { box: box, stat: stat, kill: kill };
+  }
+
+  // A group of original-file downloads: no transcode, so every row is ready at once.
+  function addOriginalsGroup(label, children, tok) {
+    var d = showDock();
+    var ui = groupBox(label + " · Original");
     var urls = [];
+
     children.forEach(function (ch) {
       var url = base() + "/Items/" + ch.id + "/Download?api_key=" + encodeURIComponent(tok);
-      urls.push(url);
+      urls.push({ url: url, filename: null });
       var row = document.createElement("div");
-      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.45em 0;border-top:1px solid rgba(255,255,255,.07);font-size:.82em;";
+      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.35em 0;font-size:.82em;";
       var name = document.createElement("span");
       name.textContent = ch.name;
       name.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
       row.appendChild(name);
-      list.appendChild(row);
+      ui.box.appendChild(row);
       setStatus(row, statusEl(ICON_DOWNLOAD, "Download original", ACCENT, function () { triggerDownload(url); }));
     });
 
-    var footer = document.createElement("div");
-    footer.style.cssText = "display:flex;gap:.5em;";
-    if (!isNativeApp()) {
-      var allBtn = document.createElement("button");
-      allBtn.type = "button";
-      allBtn.textContent = "Download all (" + urls.length + ")";
-      allBtn.style.cssText = "flex:1;background:" + ACCENT + ";color:#fff;border:0;border-radius:8px;padding:.6em;cursor:pointer;font-weight:600;";
+    if (!isNativeApp() && urls.length > 1) {
+      var allBtn = textButton("Download all (" + urls.length + ")", "primary");
+      allBtn.style.marginTop = ".4em";
       allBtn.addEventListener("click", function () {
-        urls.forEach(function (u, i) { setTimeout(function () { triggerDownload(u); }, i * 800); });
+        urls.forEach(function (u, i) { setTimeout(function () { triggerDownload(u.url); }, i * 800); });
       });
-      footer.appendChild(allBtn);
+      ui.box.appendChild(allBtn);
     }
 
-    var close = document.createElement("button");
-    close.type = "button";
-    close.textContent = "Close";
-    close.style.cssText = "flex:none;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
-    close.addEventListener("click", function () { closeOverlay(ov); });
-    footer.appendChild(close);
-    c.appendChild(footer);
+    var g = {
+      label: label,
+      status: function () { return { running: 0, ready: children.length, failed: 0, percent: 100, jobs: children.length }; },
+      refresh: function () { ui.stat.textContent = children.length + " ready"; },
+      remove: function () { removeGroup(g, ui.box); }
+    };
+    ui.kill.addEventListener("click", function () { g.remove(); });
+    d.list.appendChild(ui.box);
+    d.groups.push(g);
+    refreshDock();
+    return g;
   }
 
-  function statusEl(svgPath, title, color, onClick) {
-    var a = document.createElement("a");
-    a.href = "#";
-    a.title = title;
-    a.style.cssText = "flex:none;display:inline-flex;align-items:center;justify-content:flex-end;min-width:4.5em;color:" + color + ";cursor:pointer;";
-    a.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="' + svgPath + '"/></svg>';
-    a.addEventListener("click", function (e) { e.preventDefault(); onClick(); });
-    return a;
+  function removeGroup(g, box) {
+    if (!dock) { return; }
+    if (g.stop) { g.stop(); }
+    var i = dock.groups.indexOf(g);
+    if (i >= 0) { dock.groups.splice(i, 1); }
+    if (box && box.parentNode) { box.parentNode.removeChild(box); }
+    if (!dock.groups.length) { closeDock(); return; }
+    refreshDock();
   }
 
-  var ICON_DOWNLOAD = "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
-  var ICON_RETRY = "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z";
-
-  function setStatus(row, el) {
-    if (row.tdStatus && row.tdStatus.parentNode === row) { row.replaceChild(el, row.tdStatus); }
-    else { row.appendChild(el); }
-    row.tdStatus = el;
-  }
-
-  function statusText(text) {
-    var s = document.createElement("span");
-    s.textContent = text;
-    s.style.cssText = "flex:none;opacity:.6;min-width:4.5em;text-align:right;";
-    return s;
-  }
-
-  function startAllJobs(children, height, ov, c) {
-    c.innerHTML =
-      '<div style="font-size:1.05em;font-weight:600;margin-bottom:.2em;">Transcoding ' + children.length + ' episodes…</div>' +
-      '<div style="opacity:.6;font-size:.8em;margin-bottom:.6em;">A download icon appears as each one finishes; a failed episode shows a retry icon.</div>';
-
-    var list = document.createElement("div");
-    list.style.cssText = "max-height:48vh;overflow-y:auto;padding-right:12px;margin-bottom:.7em;";
-    c.appendChild(list);
-
-    var total = children.length;
-    var finished = [];
+  // A group of transcode jobs. Entries are either fresh (an item still to start) or already-running
+  // jobs picked up from localStorage after a reload, so a batch and a restored group are the same
+  // thing here.
+  function addGroup(spec) {
+    // A group restored from storage lands in the panel without opening it (spec.silent).
+    var wasOpen = !!(dock && dock.ov.parentNode && dock.ov.style.display !== "none");
+    var d = spec.silent ? ensureDock() : showDock();
+    if (spec.silent && !wasOpen) { minimize(d.ov); }
+    var entries = spec.entries || [];
+    var total = entries.length;
+    var uid = spec.uid || ("g" + (++uidSeq) + "-" + Date.now());
+    var height = spec.height;
+    var ui = groupBox(spec.label);
     var tracked = [];
-    var batch = { stopped: false };
+    var finished = [];
+    var stopped = false;
     var allBtn = null;
 
-    // "Download all" stays locked until every episode has transcoded successfully.
-    function updateButton() {
-      if (!allBtn) { return; }
-      var done = finished.length === total;
-      allBtn.textContent = "Download all (" + finished.length + "/" + total + ")";
-      allBtn.disabled = !done;
-      allBtn.style.opacity = done ? "1" : ".45";
-      allBtn.style.cursor = done ? "pointer" : "default";
+    function persist() {
+      var jobs = [];
+      tracked.forEach(function (r) {
+        if (r.jobId && !r.failed) { jobs.push({ id: r.jobId, name: r.name, file: r.file, item: r.item }); }
+      });
+      writeStore(uid, jobs.length ? { t: Date.now(), height: height, label: spec.label, auto: !!spec.auto, jobs: jobs } : null);
     }
 
-    function onFail(ch, row, rec) {
+    function deliver(url, filename) {
+      // Auto-start only for a single pick, and only with the panel in view: a download fired while
+      // the panel is hidden has no user gesture behind it and browsers block it. Otherwise it waits
+      // for the reopen, or for the row's own icon.
+      if (!spec.auto || isNativeApp()) { return; }
+      if (minimizedPanel === d.ov) { d.pending.push({ url: url, filename: filename }); }
+      else { triggerDownload(url, filename); }
+    }
+
+    function updateAll() {
+      if (allBtn) {
+        var done = finished.length === total;
+        allBtn.textContent = "Download all (" + finished.length + "/" + total + ")";
+        allBtn.disabled = !done;
+        allBtn.style.opacity = done ? "1" : ".45";
+        allBtn.style.cursor = done ? "pointer" : "default";
+      }
+
+      refreshDock();
+    }
+
+    function onFail(rec) {
       rec.done = false;
-      setStatus(row, statusEl(ICON_RETRY, "Transcode failed — retry", "#ff6b6b", function () { startOne(ch, row, rec); }));
-      updateButton();
+      rec.failed = true;
+      // A job restored without its item id cannot be re-submitted, so it just reads as failed
+      // instead of offering a retry that would go nowhere.
+      if (rec.item) {
+        setStatus(rec.row, statusEl(ICON_RETRY, "Transcode failed — retry", "#ff6b6b", function () { startOne(rec); }));
+      } else {
+        setStatus(rec.row, statusText("failed"));
+      }
+
+      updateAll();
+      persist();
     }
 
-    function poll(jobId, filename, ch, row, st, rec) {
-      var url = svc("/Jobs/" + jobId + "/File");
-      rec.timer = setInterval(function () {
-        fetch(svc("/Jobs/" + jobId))
-          .then(function (r) { return r.json(); })
+    function poll(rec) {
+      var url = svc("/Jobs/" + rec.jobId + "/File");
+      var st = statusText("queued");
+      setStatus(rec.row, st);
+      function check() {
+        fetch(svc("/Jobs/" + rec.jobId))
+          .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (s) {
+            if (!s) { return; }
             if (s.state === "queued") { st.textContent = "queued"; }
-            else if (s.state === "running") { st.textContent = (s.progress || 0) + "%"; }
-            else if (s.state === "done") {
-              clearInterval(rec.timer); rec.timer = null; rec.done = true;
-              finished.push({ url: url, filename: filename });
-              setStatus(row, statusEl(ICON_DOWNLOAD, "Download", ACCENT, function () { triggerDownload(url, filename); }));
-              updateButton();
+            else if (s.state === "running") {
+              rec.progress = s.progress || 0;
+              st.textContent = (s.progress || 0) + "%";
+              updateAll();
             }
-            else if (s.state === "error") { clearInterval(rec.timer); rec.timer = null; onFail(ch, row, rec); }
+            else if (s.state === "done") {
+              clearInterval(rec.timer); rec.timer = null; rec.done = true; rec.progress = 100;
+              rec.file = s.filename || rec.file;
+              finished.push({ url: url, filename: rec.file });
+              setStatus(rec.row, statusEl(ICON_DOWNLOAD, "Download", ACCENT, function () { triggerDownload(url, rec.file); }));
+              updateAll();
+              deliver(url, rec.file);
+            }
+            else if (s.state === "error") { clearInterval(rec.timer); rec.timer = null; onFail(rec); }
             else if (s.state === "cancelled") { clearInterval(rec.timer); rec.timer = null; }
           })
           .catch(function () { /* keep polling */ });
-      }, 2000);
+      }
+
+      rec.timer = setInterval(check, 2000);
+      check();   // a restored job that already finished shows its download icon straight away
     }
 
-    function startOne(ch, row, rec) {
+    function startOne(rec) {
       if (rec.timer) { clearInterval(rec.timer); rec.timer = null; }
-      rec.done = false; rec.jobId = null;
-      var st = statusText("queued");
-      setStatus(row, st);
+      rec.done = false; rec.failed = false; rec.progress = 0; rec.jobId = null;
+      setStatus(rec.row, statusText("queued"));
       fetch(svc("/Jobs"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: ch.id, height: height, bulk: true })
+        body: JSON.stringify({ itemId: rec.item, height: height, bulk: total > 1 })
       })
         .then(function (r) { if (!r.ok) { return r.text().then(function (t) { throw new Error(t || r.status); }); } return r.json(); })
         .then(function (j) {
           rec.jobId = j.jobId;
-          if (batch.stopped) { fetch(svc("/Jobs/" + j.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); return; }
-          poll(j.jobId, j.filename, ch, row, st, rec);
+          rec.file = j.filename;
+          if (stopped) { fetch(svc("/Jobs/" + j.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); return; }
+          poll(rec);
+          persist();
         })
-        .catch(function () { onFail(ch, row, rec); });
+        .catch(function () { onFail(rec); });
     }
 
-    children.forEach(function (ch) {
+    entries.forEach(function (en) {
       var row = document.createElement("div");
-      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.45em 0;border-top:1px solid rgba(255,255,255,.07);font-size:.82em;";
+      row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.35em 0;font-size:.82em;";
+      var label = en.name || en.file || "video";
       var name = document.createElement("span");
-      name.textContent = ch.name;
+      name.textContent = label;
       name.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
       row.appendChild(name);
-      list.appendChild(row);
-      var rec = { jobId: null, timer: null, done: false };
+      ui.box.appendChild(row);
+      var rec = {
+        item: en.item || null,
+        name: label,
+        file: en.file || "",
+        jobId: en.jobId || null,
+        timer: null,
+        done: false,
+        failed: false,
+        progress: 0,
+        row: row
+      };
       tracked.push(rec);
-      startOne(ch, row, rec);
+      if (rec.jobId) { poll(rec); } else { startOne(rec); }
     });
 
-    // Stop polling and cancel anything still running/queued, so closing the dialog frees the server.
-    function stopAll() {
-      batch.stopped = true;
-      tracked.forEach(function (r) {
-        if (r.timer) { clearInterval(r.timer); r.timer = null; }
-        if (r.jobId && !r.done) { fetch(svc("/Jobs/" + r.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); }
-      });
-    }
-
-    var footer = document.createElement("div");
-    footer.style.cssText = "display:flex;gap:.5em;";
-    if (!isNativeApp()) {
-      allBtn = document.createElement("button");
-      allBtn.type = "button";
+    if (!isNativeApp() && total > 1) {
+      allBtn = textButton("Download all (0/" + total + ")", "primary");
+      allBtn.style.marginTop = ".4em";
       allBtn.disabled = true;
-      allBtn.style.cssText = "flex:1;background:" + ACCENT + ";color:#fff;border:0;border-radius:8px;padding:.6em;cursor:default;font-weight:600;opacity:.45;transition:opacity .2s;";
+      allBtn.style.opacity = ".45";
       allBtn.addEventListener("click", function () {
         if (allBtn.disabled) { return; }
-        finished.forEach(function (d, i) { setTimeout(function () { triggerDownload(d.url, d.filename); }, i * 800); });
+        finished.forEach(function (f, i) { setTimeout(function () { triggerDownload(f.url, f.filename); }, i * 800); });
       });
-      footer.appendChild(allBtn);
+      ui.box.appendChild(allBtn);
     }
-    updateButton();
 
-    ov._tdCleanup = stopAll;
-    var close = document.createElement("button");
-    close.type = "button";
-    close.textContent = "Close";
-    close.style.cssText = "flex:none;background:#1b2128;color:#fff;border:0;border-radius:8px;padding:.6em 1em;cursor:pointer;";
-    close.addEventListener("click", function () { closeOverlay(ov); });
-    footer.appendChild(close);
-    c.appendChild(footer);
+    var g = {
+      label: spec.label,
+      status: function () {
+        var failed = 0;
+        var sum = 0;
+        tracked.forEach(function (r) {
+          if (r.failed) { failed++; }
+          sum += r.done ? 100 : (r.progress || 0);
+        });
+        return {
+          running: Math.max(0, total - finished.length - failed),
+          ready: finished.length,
+          failed: failed,
+          percent: total ? Math.round(sum / total) : 0,
+          jobs: total
+        };
+      },
+      refresh: function () {
+        var s = g.status();
+        var bits = [];
+        if (s.running > 0) { bits.push(s.running + " left · " + s.percent + "%"); }
+        if (s.ready > 0) { bits.push(s.ready + "/" + total + " ready"); }
+        if (s.failed > 0) { bits.push(s.failed + " failed"); }
+        ui.stat.textContent = bits.join(" · ");
+      },
+      // Stop polling and cancel whatever is still running, so dropping a group frees the server.
+      stop: function () {
+        stopped = true;
+        tracked.forEach(function (r) {
+          if (r.timer) { clearInterval(r.timer); r.timer = null; }
+          if (r.jobId && !r.done) { fetch(svc("/Jobs/" + r.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); }
+        });
+        writeStore(uid, null);
+      },
+      remove: function () { removeGroup(g, ui.box); }
+    };
+    ui.kill.title = "Cancel this batch";
+    ui.kill.addEventListener("click", function () { g.remove(); });
+    d.list.appendChild(ui.box);
+    d.groups.push(g);
+    refreshDock();
+    return g;
   }
+
+  // ---- pick groups back up after a reload ------------------------------------
+  function rehydrate() {
+    var all = readStore();
+    Object.keys(all).forEach(function (uid) {
+      var entry = all[uid];
+      if (!entry || !entry.jobs || !entry.jobs.length) { writeStore(uid, null); return; }
+      Promise.all(entry.jobs.map(function (j) {
+        return fetch(svc("/Jobs/" + j.id))
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+      })).then(function (states) {
+        var alive = [];
+        states.forEach(function (s, i) {
+          if (s && (s.state === "done" || s.state === "running" || s.state === "queued")) { alive.push(entry.jobs[i]); }
+        });
+        // The server no longer knows any of them (restart, cleanup, cancelled): forget the group.
+        if (!alive.length) { writeStore(uid, null); return; }
+        addGroup({
+          uid: uid,
+          label: entry.label || (alive.length > 1 ? alive.length + " downloads" : alive[0].name),
+          height: entry.height,
+          auto: false,                      // never fire a download on its own after a reload
+          silent: true,                     // land in the header badge, not on top of the page
+          entries: alive.map(function (j) { return { item: j.item, name: j.name, file: j.file, jobId: j.id }; })
+        });
+      });
+    });
+  }
+
+  // The script is injected into index.html and can run before Jellyfin has a session, so wait for
+  // a token before asking the server about our jobs. Gives up quietly after ~30s (login screen).
+  (function whenSignedIn() {
+    var tries = 0;
+    (function wait() {
+      if (token()) { rehydrate(); return; }
+      if (++tries > 60) { return; }
+      setTimeout(wait, 500);
+    })();
+  })();
 
   console.log("[TranscodeDownloader] client loaded");
 })();

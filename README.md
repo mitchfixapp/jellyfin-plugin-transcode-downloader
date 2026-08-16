@@ -36,11 +36,18 @@ ready-to-play **MP4**.
   <sub><b>Pick a size</b> on the existing Download action.</sub>
 </td>
 <td width="60%" align="center" valign="top">
-  <img src="docs/download-all.png" alt="Download all with per-episode progress"><br>
-  <sub><b>Download all</b> a season or series, with a per-episode progress list.</sub>
+  <img src="docs/downloads-panel.png" alt="Downloads panel with two batches"><br>
+  <sub>Everything you start lands in <b>one Downloads panel</b> — a group per movie, series or
+  season, each with its own progress and its own ✕.</sub>
 </td>
 </tr>
 </table>
+
+<p align="center">
+  <img src="docs/header-badge.png" width="320" alt="Header icon with progress badge"><br>
+  <sub><b>Minimize</b> and keep browsing: the queue keeps transcoding behind an icon in the
+  header that shows overall progress, and turns green when files are ready.</sub>
+</p>
 
 <p align="center">
   <img src="docs/settings.png" width="720" alt="Settings page"><br>
@@ -58,10 +65,16 @@ ready-to-play **MP4**.
 - 📚 **Download all** — grab a whole **season or series** in one go (transcoded, or the
   **Original** files), with a per-episode progress list; the bulk button unlocks once every
   episode is ready.
+- 🗂️ **One Downloads panel** — every batch you start is a group in the same panel, named after
+  its movie, series or season, so a second batch never hides the first. Each group can be
+  cancelled on its own.
+- 🎛️ **Minimize and keep browsing** — parking the panel keeps the transcodes running and puts a
+  progress badge in Jellyfin's header; click it to come back. Reloading the page doesn't lose
+  them either: running and finished downloads are picked back up.
 - 💬 **Subtitles included** — text subtitle tracks (embedded and external `.srt`) are muxed
   into the download as selectable soft tracks, so you can pick them in your local player.
 - 🚫 **No upscaling** — qualities above the source resolution are hidden automatically.
-- ⏳ **Progress bar + cancel** (cancelling stops ffmpeg immediately and frees the slot).
+- ⏳ **Live progress + cancel** (cancelling stops ffmpeg immediately and frees the slot).
 - ♻️ **Auto-retry** on a transient server transcode hiccup, so big batches don't lose an episode.
 - ⚙️ **Configurable** presets, bitrates, codec, concurrency and retention from the dashboard,
   with maintenance buttons to **stop all transcodes** or **clear the cache**.
@@ -74,15 +87,27 @@ ready-to-play **MP4**.
 1. Open a **movie** or **episode**.
 2. Click **Download**.
 3. Choose **Original**, or a transcode quality (480p / 720p / 1080p / 4K).
-4. A progress bar runs — you can cancel — and the file downloads when it's ready.
+4. The **Downloads** panel shows the progress — you can cancel — and the file downloads when
+   it's ready.
 
 **A whole season or series**
 
 1. Open a **series** or **season** and click the **⋯** menu → **Download all**.
 2. Pick one quality for the whole set.
 3. Each episode is queued and transcoded (respecting your concurrency limit); a **download**
-   link appears next to each one as it finishes. In a browser, **Download finished** grabs
-   every completed episode at once.
+   icon appears next to each one as it finishes. In a browser, **Download all** grabs every
+   completed episode at once.
+
+**While it runs**
+
+Press **Minimize** (or click outside the panel) to carry on browsing — the transcodes keep
+running and a download icon with the overall progress appears in Jellyfin's header. Click it to
+open the panel again; the badge turns green once files are ready. Starting another download
+meanwhile simply adds a group to the same panel, and each group has its own **✕** to cancel just
+that one. **Cancel all** stops everything that is still running.
+
+A finished transcode stays on the server for as long as your retention setting allows, so
+reloading the page — or coming back later — picks the downloads back up behind that same icon.
 
 > On the official mobile apps the download opens in the device browser/download manager.
 > That is the only way the apps can fetch a custom (transcoded) file — their built-in download

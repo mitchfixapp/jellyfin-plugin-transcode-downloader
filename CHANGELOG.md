@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.3 - 2026-08-16
+- **Downloads no longer hold the screen.** The progress dialog can be **minimized**: the transcode
+  keeps running and a download icon with a progress badge appears in Jellyfin's header, so you can
+  keep browsing or watching. Click the icon to come back — the badge turns green as soon as files
+  are ready. Clicking outside the panel minimizes it too, so a stray click can no longer throw away
+  a transcode.
+- **One Downloads panel for everything.** Every download you start is a group in the same panel,
+  headed with its movie, series or season, so starting a second batch no longer hides the first.
+  Each group shows its own progress and can be cancelled on its own with **✕**, while the header
+  badge reflects the whole queue.
+- **Reloading the page no longer loses a download.** After a refresh — or when you come back to
+  Jellyfin later — running and finished downloads are picked up again behind that same icon, so a
+  file that finished while you were away is still one click away.
+- **Clearer buttons**: the button that closes a panel now reads **Cancel** while transcodes are
+  still running (it stops them) and only becomes **Close** once everything has finished.
+
+  Thanks to [@ndom91](https://github.com/ndom91) for suggesting this.
+
 ## v1.2.2 - 2026-07-02
 - **Fixed**: the plugin failed to load — showing status **"NotSupported"** — on any Jellyfin 10.11.x
   release older than the exact patch it was built against (for example on 10.11.8). It was compiled
