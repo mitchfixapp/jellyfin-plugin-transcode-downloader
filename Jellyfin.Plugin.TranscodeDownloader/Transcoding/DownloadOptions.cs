@@ -9,6 +9,9 @@ public sealed class DownloadOptions
     /// <summary>Gets or sets the item kind: <c>"video"</c> for a movie/episode, <c>"folder"</c> for a series/season.</summary>
     public string Kind { get; set; } = "video";
 
+    /// <summary>Gets or sets the item's display name, used to label its download panel.</summary>
+    public string Name { get; set; } = string.Empty;
+
     /// <summary>Gets or sets a value indicating whether the "Original" (no transcode) option is offered.</summary>
     public bool ShowOriginal { get; set; }
 

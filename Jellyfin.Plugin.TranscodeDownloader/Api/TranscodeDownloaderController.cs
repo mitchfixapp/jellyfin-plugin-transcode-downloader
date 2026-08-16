@@ -56,6 +56,7 @@ public class TranscodeDownloaderController : ControllerBase
         {
             downloadable = true,
             kind = opts.Kind,
+            name = opts.Name,
             showOriginal = opts.ShowOriginal,
             presets = opts.Presets.Select(p => new { label = p.Label, height = p.MaxHeight }),
             children = opts.Children.Select(c => new

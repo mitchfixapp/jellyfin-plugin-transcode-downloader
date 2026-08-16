@@ -99,6 +99,7 @@ public sealed class TranscodeManager : IDisposable
             return new DownloadOptions
             {
                 Kind = "video",
+                Name = video.Name ?? string.Empty,
                 ShowOriginal = Config.ShowOriginal,
                 Presets = FilterPresets(GetSourceWidth(video))
             };
@@ -121,9 +122,16 @@ public sealed class TranscodeManager : IDisposable
             var children = episodes
                 .Select(e => new DownloadChild { Id = e.Id, Name = BuildChildName(e) })
                 .ToList();
+            // A season is called "Season 6", which says nothing on its own once a panel is
+            // minimized next to another one, so it is prefixed with its series.
+            var folderName = folder is Season season && !string.IsNullOrWhiteSpace(season.SeriesName)
+                ? season.SeriesName + " — " + folder.Name
+                : folder.Name ?? string.Empty;
+
             return new DownloadOptions
             {
                 Kind = "folder",
+                Name = folderName,
                 ShowOriginal = Config.ShowOriginal,
                 Presets = FilterPresets(maxWidth),
                 Children = children

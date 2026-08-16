@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.3-beta.3 - 2026-08-16
+- **One Downloads panel for everything**: every download you start now lands in a single panel, one
+  group per movie, series or season, each labelled with its own title. Starting a second batch while
+  the first is still running no longer hides the first — they sit under each other, the header badge
+  reflects the whole queue, and each group can be dropped on its own with its ✕ while the rest keeps
+  going.
+
 ## v1.2.3-beta.2 - 2026-08-14
 - **Fixed**: the progress badge on the header icon stayed on 0% for a "Download all" batch until a
   whole episode had finished. It now follows the actual progress of the episodes being transcoded,
