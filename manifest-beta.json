@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.4.3",
+        "changelog": "- **Fixed**: on Jellyfin 12 the progress badge on the header icon was partly cut off by the round\n  button shape.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.3/transcode-downloader_1.2.4.3.zip",
+        "checksum": "4dd7cde8e6dbec9307e0a757a95dcba2",
+        "timestamp": "2026-09-13T17:21:18.0000000Z"
+      },
+      {
         "version": "1.2.4.2",
         "changelog": "- **Fixed**: on Jellyfin 12 the icon for a minimized download did not appear in the header (it fell\n  back to a floating button in the bottom-right corner). It now sits among the other header icons,\n  next to the user menu, like it does on Jellyfin 10.11.",
         "targetAbi": "10.11.0.0",
