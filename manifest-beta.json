@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.4.1",
+        "changelog": "- **Fixed**: on Jellyfin 12 the Download button did nothing — no quality picker, no download. The\n  plugin now signs in to the server the way Jellyfin 12 requires, while staying fully compatible\n  with Jellyfin 10.11.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.1/transcode-downloader_1.2.4.1.zip",
+        "checksum": "734237ce2a92a5b937a741ae6009f45c",
+        "timestamp": "2026-09-13T16:56:08.0000000Z"
+      },
+      {
         "version": "1.2.3.4",
         "changelog": "- **Fixed**: downloading a single episode headed its group with the episode title instead of the\n  series, so the panel read \"Road Rage Vigilante or Family Protector?\" twice with no clue which show\n  it belonged to. The group is now headed with the series and the episode names its own row.",
         "targetAbi": "10.11.0.0",
