@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.4.6",
+        "changelog": "- On Jellyfin 12 the header icon for a minimized download is now the leftmost icon in the header's\n  icon row, so Jellyfin's own icons keep their usual positions.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.6/transcode-downloader_1.2.4.6.zip",
+        "checksum": "d0eb4bd173401c53b18262b623b112c1",
+        "timestamp": "2026-09-13T17:53:28.0000000Z"
+      },
+      {
         "version": "1.2.4.5",
         "changelog": "- On Jellyfin 12 the header icon for a minimized download now sits between the cast and search\n  icons instead of squeezed against the profile picture, so the spacing matches the other icons.",
         "targetAbi": "10.11.0.0",
