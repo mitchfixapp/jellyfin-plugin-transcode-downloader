@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.4-beta.1 - 2026-09-13
+- **Fixed**: on Jellyfin 12 the Download button did nothing — no quality picker, no download. The
+  plugin now signs in to the server the way Jellyfin 12 requires, while staying fully compatible
+  with Jellyfin 10.11.
+
 ## v1.2.3-beta.4 - 2026-08-16
 - **Fixed**: downloading a single episode headed its group with the episode title instead of the
   series, so the panel read "Road Rage Vigilante or Family Protector?" twice with no clue which show

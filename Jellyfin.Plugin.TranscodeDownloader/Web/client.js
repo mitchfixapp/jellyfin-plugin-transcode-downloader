@@ -24,7 +24,28 @@
     return location.origin;
   }
   function svc(path) {
-    return base() + "/TranscodeDownloader" + path + (path.indexOf("?") >= 0 ? "&" : "?") + "api_key=" + encodeURIComponent(token() || "");
+    return base() + "/TranscodeDownloader" + path;
+  }
+  // Jellyfin 12 disables its legacy authentication by default: the `?api_key=` query parameter and
+  // the X-Emby-Token header are rejected with 401. The Authorization header with the MediaBrowser
+  // scheme and the `?ApiKey=` query parameter are accepted by 10.10, 10.11 and 12 alike, so API
+  // calls carry the header and only navigations (download links, which cannot set headers) put the
+  // token in the URL as ApiKey.
+  function authHeaders(extra) {
+    var h = { Authorization: 'MediaBrowser Token="' + (token() || "") + '"' };
+    if (extra) { Object.keys(extra).forEach(function (k) { h[k] = extra[k]; }); }
+    return h;
+  }
+  function apiFetch(path, opts) {
+    opts = opts || {};
+    opts.headers = authHeaders(opts.headers);
+    return fetch(svc(path), opts);
+  }
+  function withKey(url) {
+    return url + (url.indexOf("?") >= 0 ? "&" : "?") + "ApiKey=" + encodeURIComponent(token() || "");
+  }
+  function originalUrl(itemId) {
+    return withKey(base() + "/Items/" + itemId + "/Download");
   }
   function urlItemId() {
     var m = (location.hash || "").match(/[?&]id=([a-f0-9]{32})/i);
@@ -37,7 +58,7 @@
   function getOptions(itemId) {
     var hit = optionsCache[itemId];
     if (hit && (Date.now() - hit.t) < OPTIONS_TTL) { return Promise.resolve(hit.o); }
-    return fetch(svc("/Options?itemId=" + itemId))
+    return apiFetch("/Options?itemId=" + itemId)
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (o) { if (o) { optionsCache[itemId] = { o: o, t: Date.now() }; } return o; })
       .catch(function () { return null; });
@@ -200,7 +221,7 @@
     // NativeShell.downloadFiles only re-fetches the ORIGINAL by itemId (it cannot reach our
     // transcoded file). Route the download through NativeShell.openUrl so the device browser /
     // download manager handles it: the server sends Content-Disposition: attachment and the
-    // api_key travels in the URL, so it downloads directly. Browsers keep the <a download> path.
+    // token travels in the URL as ApiKey, so it downloads directly. Browsers keep the <a download> path.
     if (isNativeApp()) {
       try { window.NativeShell.openUrl(url, "_blank"); return; } catch (e) { /* fall through */ }
     }
@@ -378,7 +399,7 @@
       if (o.showOriginal) {
         var orig = optionButton("Original", "full file, no transcode — largest");
         orig.addEventListener("click", function () {
-          triggerDownload(base() + "/Items/" + itemId + "/Download?api_key=" + encodeURIComponent(tok));
+          triggerDownload(originalUrl(itemId));
           closePicker(ov);
         });
         c.appendChild(orig);
@@ -430,7 +451,7 @@
         var orig = optionButton("Original", o.children.length + " episodes, full files — no transcode");
         orig.addEventListener("click", function () {
           closePicker(ov);
-          addOriginalsGroup(o.name || "Originals", o.children, tok);
+          addOriginalsGroup(o.name || "Originals", o.children);
         });
         c.appendChild(orig);
       }
@@ -580,13 +601,13 @@
   }
 
   // A group of original-file downloads: no transcode, so every row is ready at once.
-  function addOriginalsGroup(label, children, tok) {
+  function addOriginalsGroup(label, children) {
     var d = showDock();
     var ui = groupBox(label + " · Original");
     var urls = [];
 
     children.forEach(function (ch) {
-      var url = base() + "/Items/" + ch.id + "/Download?api_key=" + encodeURIComponent(tok);
+      var url = originalUrl(ch.id);
       urls.push({ url: url, filename: null });
       var row = document.createElement("div");
       row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.35em 0;font-size:.82em;";
@@ -693,11 +714,11 @@
     }
 
     function poll(rec) {
-      var url = svc("/Jobs/" + rec.jobId + "/File");
+      var url = withKey(svc("/Jobs/" + rec.jobId + "/File"));
       var st = statusText("queued");
       setStatus(rec.row, st);
       function check() {
-        fetch(svc("/Jobs/" + rec.jobId))
+        apiFetch("/Jobs/" + rec.jobId)
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (s) {
             if (!s) { return; }
@@ -729,7 +750,7 @@
       if (rec.timer) { clearInterval(rec.timer); rec.timer = null; }
       rec.done = false; rec.failed = false; rec.progress = 0; rec.jobId = null;
       setStatus(rec.row, statusText("queued"));
-      fetch(svc("/Jobs"), {
+      apiFetch("/Jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemId: rec.item, height: height, bulk: total > 1 })
@@ -738,7 +759,7 @@
         .then(function (j) {
           rec.jobId = j.jobId;
           rec.file = j.filename;
-          if (stopped) { fetch(svc("/Jobs/" + j.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); return; }
+          if (stopped) { apiFetch("/Jobs/" + j.jobId, { method: "DELETE" }).catch(function () { /* noop */ }); return; }
           poll(rec);
           persist();
         })
@@ -811,7 +832,7 @@
         stopped = true;
         tracked.forEach(function (r) {
           if (r.timer) { clearInterval(r.timer); r.timer = null; }
-          if (r.jobId && !r.done) { fetch(svc("/Jobs/" + r.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); }
+          if (r.jobId && !r.done) { apiFetch("/Jobs/" + r.jobId, { method: "DELETE" }).catch(function () { /* noop */ }); }
         });
         writeStore(uid, null);
       },
@@ -832,7 +853,7 @@
       var entry = all[uid];
       if (!entry || !entry.jobs || !entry.jobs.length) { writeStore(uid, null); return; }
       Promise.all(entry.jobs.map(function (j) {
-        return fetch(svc("/Jobs/" + j.id))
+        return apiFetch("/Jobs/" + j.id)
           .then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });
       })).then(function (states) {

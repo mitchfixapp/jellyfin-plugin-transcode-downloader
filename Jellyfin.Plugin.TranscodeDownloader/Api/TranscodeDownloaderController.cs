@@ -166,9 +166,24 @@ public class TranscodeDownloaderController : ControllerBase
 
     private string? GetToken()
     {
-        if (Request.Query.TryGetValue("api_key", out var k) && !string.IsNullOrEmpty(k))
+        // Preferred forms first (the only ones Jellyfin 12 accepts by default): the Authorization
+        // header and the ApiKey query parameter. The legacy api_key / X-Emby-Token forms stay as a
+        // fallback for 10.11 hosts that still allow them.
+        var auth = Request.Headers.Authorization.ToString();
+        var m = Regex.Match(auth, "Token=\"?([^\",]+)\"?", RegexOptions.IgnoreCase);
+        if (m.Success)
+        {
+            return m.Groups[1].Value;
+        }
+
+        if (Request.Query.TryGetValue("ApiKey", out var k) && !string.IsNullOrEmpty(k))
         {
             return k.ToString();
+        }
+
+        if (Request.Query.TryGetValue("api_key", out var legacy) && !string.IsNullOrEmpty(legacy))
+        {
+            return legacy.ToString();
         }
 
         if (Request.Headers.TryGetValue("X-Emby-Token", out var h) && !string.IsNullOrEmpty(h))
@@ -176,8 +191,6 @@ public class TranscodeDownloaderController : ControllerBase
             return h.ToString();
         }
 
-        var auth = Request.Headers.Authorization.ToString();
-        var m = Regex.Match(auth, "Token=\"?([^\",]+)\"?", RegexOptions.IgnoreCase);
-        return m.Success ? m.Groups[1].Value : null;
+        return null;
     }
 }
