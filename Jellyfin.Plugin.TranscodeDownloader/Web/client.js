@@ -319,11 +319,48 @@
     return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
   }
 
+  var LEGACY_BUTTON_CLASS = "paper-icon-button-light headerButton headerButtonRight";
   var HEADER_STYLE = "position:relative;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;color:inherit;cursor:pointer;padding:.4em;";
-  // Sized like a MUI IconButton so it lines up with the Jellyfin 12 header icons.
+  // Used in a MUI header only when no sibling IconButton is there to copy from (see dressForHost).
   // overflow:visible because Jellyfin's paper-icon-button-light sets overflow:hidden, which with the
   // round shape clips the progress badge sitting in the button's corner.
   var MUI_HEADER_STYLE = HEADER_STYLE + "width:40px;height:40px;padding:0;margin:0 4px;border-radius:50%;overflow:visible;";
+
+  function setIconChrome(svg, className) {
+    if (!svg) { return; }
+    if (className) {
+      svg.setAttribute("class", className);
+      svg.removeAttribute("width");
+      svg.removeAttribute("height");
+    } else {
+      svg.removeAttribute("class");
+      svg.setAttribute("width", "24");
+      svg.setAttribute("height", "24");
+    }
+  }
+
+  // Dress the button for the header it is about to join. In the Jellyfin 12 MUI header it borrows
+  // the class list of a neighbouring IconButton — including its emotion css-* class — so it gets
+  // the exact same size, padding, icon size, hover background and transition as Jellyfin's own
+  // icons. The legacy header (10.11) keeps the plugin's original look.
+  function dressForHost(host, legacy) {
+    var svg = headerBtn.querySelector("svg");
+    var ref = legacy ? null : host.querySelector("button.MuiIconButton-root");
+    if (ref) {
+      headerBtn.className = ref.className;
+      headerBtn.style.cssText = "position:relative;overflow:visible;";
+      var refSvg = ref.querySelector("svg");
+      setIconChrome(svg, refSvg ? refSvg.getAttribute("class") : null);
+      headerBadge.style.top = "2px";
+      headerBadge.style.right = "2px";
+      return;
+    }
+    headerBtn.className = LEGACY_BUTTON_CLASS;
+    headerBtn.style.cssText = legacy ? HEADER_STYLE : MUI_HEADER_STYLE;
+    setIconChrome(svg, null);
+    headerBadge.style.top = legacy ? "0" : "2px";
+    headerBadge.style.right = legacy ? "0" : "-2px";
+  }
   var FLOAT_STYLE = "position:fixed;right:1.2em;bottom:1.2em;z-index:2147483646;display:inline-flex;align-items:center;justify-content:center;background:#101418;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:.6em;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5);";
 
   // Jellyfin hides .headerRight on some screens (they carry a "noHeaderRight" header) and the
@@ -337,16 +374,15 @@
         // The legacy header lists its buttons right-to-left, so first child = leftmost slot; the
         // MUI icon group is a plain left-to-right flex row, so the button is appended at its end.
         var legacy = host.matches(LEGACY_HEADER_HOSTS);
-        headerBtn.style.cssText = legacy ? HEADER_STYLE : MUI_HEADER_STYLE;
-        if (headerBadge) {
-          // In the round MUI button the badge hangs just outside the top-right edge.
-          headerBadge.style.top = legacy ? "0" : "2px";
-          headerBadge.style.right = legacy ? "0" : "-2px";
-        }
+        dressForHost(host, legacy);
         if (legacy) { host.insertBefore(headerBtn, host.firstChild); } else { host.appendChild(headerBtn); }
       }
     } else if (headerBtn.parentNode !== document.body) {
+      headerBtn.className = LEGACY_BUTTON_CLASS;
       headerBtn.style.cssText = FLOAT_STYLE;
+      setIconChrome(headerBtn.querySelector("svg"), null);
+      headerBadge.style.top = "0";
+      headerBadge.style.right = "0";
       document.body.appendChild(headerBtn);
     }
   }
@@ -356,12 +392,13 @@
     b.type = "button";
     // Jellyfin's own header-button classes give the right size and hover; the inline styles keep
     // it sane on skins that do not define them.
-    b.className = "paper-icon-button-light headerButton headerButtonRight";
+    b.className = LEGACY_BUTTON_CLASS;
     b.setAttribute("data-td-header", "1");
     b.style.cssText = HEADER_STYLE;
     b.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="' + ICON_DOWNLOAD + '"/></svg>';
     var badge = document.createElement("span");
-    badge.style.cssText = "position:absolute;top:0;right:0;min-width:1.5em;height:1.5em;padding:0 .3em;border-radius:1em;background:" + ACCENT + ";color:#fff;font-size:.6em;font-weight:700;line-height:1.5em;text-align:center;box-sizing:border-box;";
+    // Absolute font size: a MUI IconButton has a 26px font-size, which would blow a .6em badge up.
+    badge.style.cssText = "position:absolute;top:0;right:0;min-width:1.5em;height:1.5em;padding:0 .3em;border-radius:1em;background:" + ACCENT + ";color:#fff;font-size:9.6px;font-weight:700;line-height:1.5em;text-align:center;box-sizing:border-box;";
     b.appendChild(badge);
     b.addEventListener("click", function (e) {
       e.preventDefault();

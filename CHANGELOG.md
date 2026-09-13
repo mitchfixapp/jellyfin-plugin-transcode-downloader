@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.4-beta.4 - 2026-09-13
+- On Jellyfin 12 the header icon for a minimized download now looks exactly like Jellyfin's own
+  header icons: same size and alignment, the same hover effect, and the progress badge no longer
+  crowds the profile icon next to it.
+
 ## v1.2.4-beta.3 - 2026-09-13
 - **Fixed**: on Jellyfin 12 the progress badge on the header icon was partly cut off by the round
   button shape.
