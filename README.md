@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Jellyfin-10.11-00A4DC" alt="Jellyfin 10.11">
+  <img src="https://img.shields.io/badge/Jellyfin-10.11%20%7C%2012-00A4DC" alt="Jellyfin 10.11 | 12">
   <img src="https://img.shields.io/github/v/release/mitchfixapp/jellyfin-plugin-transcode-downloader?label=release" alt="Latest release">
   <img src="https://img.shields.io/badge/license-AGPL--3.0%20or%20commercial-5b48d6" alt="License">
 </p>
@@ -115,7 +115,7 @@ reloading the page — or coming back later — picks the downloads back up behi
 
 ## Requirements
 
-- **Jellyfin 10.11.x**.
+- **Jellyfin 10.11.x or 12.x**.
 - A working transcoding setup on your server (hardware acceleration recommended).
 - The **[File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)**
   plugin — strongly recommended. It lets this plugin inject its button into the web UI in

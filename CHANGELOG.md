@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.4 - 2026-09-13
+- **Jellyfin 12 support.** The plugin now works on Jellyfin 12: the **Download** button and the
+  quality picker are back, downloads and "Download all" complete normally, and the icon for a
+  minimized download takes its place among the icons in Jellyfin 12's new header, styled like the
+  others. Jellyfin 10.11 remains fully supported with the same release.
+
 ## v1.2.3 - 2026-08-16
 - **Downloads no longer hold the screen.** The progress dialog can be **minimized**: the transcode
   keeps running and a download icon with a progress badge appears in Jellyfin's header, so you can

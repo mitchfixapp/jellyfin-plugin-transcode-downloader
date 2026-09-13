@@ -24,7 +24,28 @@
     return location.origin;
   }
   function svc(path) {
-    return base() + "/TranscodeDownloader" + path + (path.indexOf("?") >= 0 ? "&" : "?") + "api_key=" + encodeURIComponent(token() || "");
+    return base() + "/TranscodeDownloader" + path;
+  }
+  // Jellyfin 12 disables its legacy authentication by default: the `?api_key=` query parameter and
+  // the X-Emby-Token header are rejected with 401. The Authorization header with the MediaBrowser
+  // scheme and the `?ApiKey=` query parameter are accepted by 10.10, 10.11 and 12 alike, so API
+  // calls carry the header and only navigations (download links, which cannot set headers) put the
+  // token in the URL as ApiKey.
+  function authHeaders(extra) {
+    var h = { Authorization: 'MediaBrowser Token="' + (token() || "") + '"' };
+    if (extra) { Object.keys(extra).forEach(function (k) { h[k] = extra[k]; }); }
+    return h;
+  }
+  function apiFetch(path, opts) {
+    opts = opts || {};
+    opts.headers = authHeaders(opts.headers);
+    return fetch(svc(path), opts);
+  }
+  function withKey(url) {
+    return url + (url.indexOf("?") >= 0 ? "&" : "?") + "ApiKey=" + encodeURIComponent(token() || "");
+  }
+  function originalUrl(itemId) {
+    return withKey(base() + "/Items/" + itemId + "/Download");
   }
   function urlItemId() {
     var m = (location.hash || "").match(/[?&]id=([a-f0-9]{32})/i);
@@ -37,7 +58,7 @@
   function getOptions(itemId) {
     var hit = optionsCache[itemId];
     if (hit && (Date.now() - hit.t) < OPTIONS_TTL) { return Promise.resolve(hit.o); }
-    return fetch(svc("/Options?itemId=" + itemId))
+    return apiFetch("/Options?itemId=" + itemId)
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (o) { if (o) { optionsCache[itemId] = { o: o, t: Date.now() }; } return o; })
       .catch(function () { return null; });
@@ -200,7 +221,7 @@
     // NativeShell.downloadFiles only re-fetches the ORIGINAL by itemId (it cannot reach our
     // transcoded file). Route the download through NativeShell.openUrl so the device browser /
     // download manager handles it: the server sends Content-Disposition: attachment and the
-    // api_key travels in the URL, so it downloads directly. Browsers keep the <a download> path.
+    // token travels in the URL as ApiKey, so it downloads directly. Browsers keep the <a download> path.
     if (isNativeApp()) {
       try { window.NativeShell.openUrl(url, "_blank"); return; } catch (e) { /* fall through */ }
     }
@@ -273,17 +294,74 @@
     if (minimizedPanel === ov) { minimizedPanel = null; tick(); }
   }
 
+  var LEGACY_HEADER_HOSTS = ".headerRight, .headerButtons, .skinHeader";
+
   function headerHost() {
-    return document.querySelector(".headerRight")
+    var legacy = document.querySelector(".headerRight")
       || document.querySelector(".skinHeader .headerButtons")
       || document.querySelector(".skinHeader");
+    if (isVisible(legacy)) { return legacy; }
+
+    // Jellyfin 12 renders its header as a MUI AppBar and keeps the legacy .skinHeader in the DOM
+    // but hidden (0x0). The toolbar holds the navigation on the left, then the icon group
+    // (random / play / SyncPlay / cast / search) and, last, the user-menu box. The button joins
+    // the icon group so it sits among the other header icons (see place() for the exact slot).
+    var toolbar = document.querySelector("header.MuiAppBar-root .MuiToolbar-root");
+    if (toolbar) {
+      var groups = Array.prototype.filter.call(toolbar.children, function (c) { return !!c.querySelector("button"); });
+      var host = groups.length > 1 ? groups[groups.length - 2] : groups[0];
+      if (host) { return host; }
+    }
+    return legacy;
   }
 
   function isVisible(el) {
     return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
   }
 
+  var LEGACY_BUTTON_CLASS = "paper-icon-button-light headerButton headerButtonRight";
   var HEADER_STYLE = "position:relative;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;color:inherit;cursor:pointer;padding:.4em;";
+  // Used in a MUI header only when no sibling IconButton is there to copy from (see dressForHost).
+  // overflow:visible because Jellyfin's paper-icon-button-light sets overflow:hidden, which with the
+  // round shape clips the progress badge sitting in the button's corner.
+  var MUI_HEADER_STYLE = HEADER_STYLE + "width:40px;height:40px;padding:0;margin:0 4px;border-radius:50%;overflow:visible;";
+
+  function setIconChrome(svg, className) {
+    if (!svg) { return; }
+    if (className) {
+      svg.setAttribute("class", className);
+      svg.removeAttribute("width");
+      svg.removeAttribute("height");
+    } else {
+      svg.removeAttribute("class");
+      svg.setAttribute("width", "24");
+      svg.setAttribute("height", "24");
+    }
+  }
+
+  // Dress the button for the header it is about to join. In the Jellyfin 12 MUI header it borrows
+  // the class list of a neighbouring IconButton — including its emotion css-* class — so it gets
+  // the exact same size, padding, icon size, hover background and transition as Jellyfin's own
+  // icons. The legacy header (10.11) keeps the plugin's original look.
+  function dressForHost(host, legacy) {
+    var svg = headerBtn.querySelector("svg");
+    // Any IconButton will do as the template (the search icon is an <a>, the others <button>).
+    var ref = legacy ? null : (host.querySelector("button.MuiIconButton-root") || host.querySelector(".MuiIconButton-root"));
+    if (ref) {
+      headerBtn.className = ref.className;
+      headerBtn.style.cssText = "position:relative;overflow:visible;";
+      var refSvg = ref.querySelector("svg");
+      setIconChrome(svg, refSvg ? refSvg.getAttribute("class") : null);
+      headerBadge.style.top = "2px";
+      headerBadge.style.right = "2px";
+      return;
+    }
+    headerBtn.className = LEGACY_BUTTON_CLASS;
+    headerBtn.style.cssText = legacy ? HEADER_STYLE : MUI_HEADER_STYLE;
+    setIconChrome(svg, null);
+    headerBadge.style.top = legacy ? "0" : "2px";
+    headerBadge.style.right = legacy ? "0" : "-2px";
+  }
   var FLOAT_STYLE = "position:fixed;right:1.2em;bottom:1.2em;z-index:2147483646;display:inline-flex;align-items:center;justify-content:center;background:#101418;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:.6em;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5);";
 
   // Jellyfin hides .headerRight on some screens (they carry a "noHeaderRight" header) and the
@@ -294,11 +372,22 @@
     var host = headerHost();
     if (isVisible(host)) {
       if (headerBtn.parentNode !== host) {
-        headerBtn.style.cssText = HEADER_STYLE;
+        // The legacy header lists its buttons right-to-left, so first child = leftmost slot; the
+        // MUI icon group is a plain left-to-right flex row, so the button is appended at its end.
+        var legacy = host.matches(LEGACY_HEADER_HOSTS);
+        dressForHost(host, legacy);
+        // Leftmost slot in both headers. In the MUI header the icon group is right-aligned with
+        // search flush against the user-menu avatar, so anything appended at the end — badge and
+        // all — crowds the avatar; first in the row it gets the normal icon gap and Jellyfin's own
+        // icons keep their exact positions.
         host.insertBefore(headerBtn, host.firstChild);
       }
     } else if (headerBtn.parentNode !== document.body) {
+      headerBtn.className = LEGACY_BUTTON_CLASS;
       headerBtn.style.cssText = FLOAT_STYLE;
+      setIconChrome(headerBtn.querySelector("svg"), null);
+      headerBadge.style.top = "0";
+      headerBadge.style.right = "0";
       document.body.appendChild(headerBtn);
     }
   }
@@ -308,12 +397,13 @@
     b.type = "button";
     // Jellyfin's own header-button classes give the right size and hover; the inline styles keep
     // it sane on skins that do not define them.
-    b.className = "paper-icon-button-light headerButton headerButtonRight";
+    b.className = LEGACY_BUTTON_CLASS;
     b.setAttribute("data-td-header", "1");
     b.style.cssText = HEADER_STYLE;
     b.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="' + ICON_DOWNLOAD + '"/></svg>';
     var badge = document.createElement("span");
-    badge.style.cssText = "position:absolute;top:0;right:0;min-width:1.5em;height:1.5em;padding:0 .3em;border-radius:1em;background:" + ACCENT + ";color:#fff;font-size:.6em;font-weight:700;line-height:1.5em;text-align:center;box-sizing:border-box;";
+    // Absolute font size: a MUI IconButton has a 26px font-size, which would blow a .6em badge up.
+    badge.style.cssText = "position:absolute;top:0;right:0;min-width:1.5em;height:1.5em;padding:0 .3em;border-radius:1em;background:" + ACCENT + ";color:#fff;font-size:9.6px;font-weight:700;line-height:1.5em;text-align:center;box-sizing:border-box;";
     b.appendChild(badge);
     b.addEventListener("click", function (e) {
       e.preventDefault();
@@ -378,7 +468,7 @@
       if (o.showOriginal) {
         var orig = optionButton("Original", "full file, no transcode — largest");
         orig.addEventListener("click", function () {
-          triggerDownload(base() + "/Items/" + itemId + "/Download?api_key=" + encodeURIComponent(tok));
+          triggerDownload(originalUrl(itemId));
           closePicker(ov);
         });
         c.appendChild(orig);
@@ -430,7 +520,7 @@
         var orig = optionButton("Original", o.children.length + " episodes, full files — no transcode");
         orig.addEventListener("click", function () {
           closePicker(ov);
-          addOriginalsGroup(o.name || "Originals", o.children, tok);
+          addOriginalsGroup(o.name || "Originals", o.children);
         });
         c.appendChild(orig);
       }
@@ -580,13 +670,13 @@
   }
 
   // A group of original-file downloads: no transcode, so every row is ready at once.
-  function addOriginalsGroup(label, children, tok) {
+  function addOriginalsGroup(label, children) {
     var d = showDock();
     var ui = groupBox(label + " · Original");
     var urls = [];
 
     children.forEach(function (ch) {
-      var url = base() + "/Items/" + ch.id + "/Download?api_key=" + encodeURIComponent(tok);
+      var url = originalUrl(ch.id);
       urls.push({ url: url, filename: null });
       var row = document.createElement("div");
       row.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.35em 0;font-size:.82em;";
@@ -693,11 +783,11 @@
     }
 
     function poll(rec) {
-      var url = svc("/Jobs/" + rec.jobId + "/File");
+      var url = withKey(svc("/Jobs/" + rec.jobId + "/File"));
       var st = statusText("queued");
       setStatus(rec.row, st);
       function check() {
-        fetch(svc("/Jobs/" + rec.jobId))
+        apiFetch("/Jobs/" + rec.jobId)
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (s) {
             if (!s) { return; }
@@ -729,7 +819,7 @@
       if (rec.timer) { clearInterval(rec.timer); rec.timer = null; }
       rec.done = false; rec.failed = false; rec.progress = 0; rec.jobId = null;
       setStatus(rec.row, statusText("queued"));
-      fetch(svc("/Jobs"), {
+      apiFetch("/Jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemId: rec.item, height: height, bulk: total > 1 })
@@ -738,7 +828,7 @@
         .then(function (j) {
           rec.jobId = j.jobId;
           rec.file = j.filename;
-          if (stopped) { fetch(svc("/Jobs/" + j.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); return; }
+          if (stopped) { apiFetch("/Jobs/" + j.jobId, { method: "DELETE" }).catch(function () { /* noop */ }); return; }
           poll(rec);
           persist();
         })
@@ -811,7 +901,7 @@
         stopped = true;
         tracked.forEach(function (r) {
           if (r.timer) { clearInterval(r.timer); r.timer = null; }
-          if (r.jobId && !r.done) { fetch(svc("/Jobs/" + r.jobId), { method: "DELETE" }).catch(function () { /* noop */ }); }
+          if (r.jobId && !r.done) { apiFetch("/Jobs/" + r.jobId, { method: "DELETE" }).catch(function () { /* noop */ }); }
         });
         writeStore(uid, null);
       },
@@ -832,7 +922,7 @@
       var entry = all[uid];
       if (!entry || !entry.jobs || !entry.jobs.length) { writeStore(uid, null); return; }
       Promise.all(entry.jobs.map(function (j) {
-        return fetch(svc("/Jobs/" + j.id))
+        return apiFetch("/Jobs/" + j.id)
           .then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });
       })).then(function (states) {

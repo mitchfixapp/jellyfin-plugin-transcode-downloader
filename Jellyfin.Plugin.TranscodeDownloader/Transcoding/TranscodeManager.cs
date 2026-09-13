@@ -1020,7 +1020,9 @@ public sealed class TranscodeManager : IDisposable
             ["videoBitRate"] = preset.VideoBitrate.ToString(CultureInfo.InvariantCulture),
             ["audioBitRate"] = Config.AudioBitrate.ToString(CultureInfo.InvariantCulture),
             ["maxAudioChannels"] = Config.MaxAudioChannels.ToString(CultureInfo.InvariantCulture),
-            ["api_key"] = token
+
+            // The query form every supported server (10.11 and 12) accepts; api_key is legacy-only on 12.
+            ["ApiKey"] = token
         };
         var query = string.Join("&", q.Select(kv => kv.Key + "=" + Uri.EscapeDataString(kv.Value)));
         return string.Format(
@@ -1173,7 +1175,7 @@ public sealed class TranscodeManager : IDisposable
         Path.Combine(WorkDir, job.Id.ToString("N", CultureInfo.InvariantCulture) + ".part.mp4");
 
     private static string Redact(string value) =>
-        Regex.Replace(value, "api_key=[^&\\s\"]+", "api_key=REDACTED", RegexOptions.IgnoreCase);
+        Regex.Replace(value, "(api_key|ApiKey)=[^&\\s\"]+", "$1=REDACTED", RegexOptions.IgnoreCase);
 
     private void TryDelete(string path)
     {
