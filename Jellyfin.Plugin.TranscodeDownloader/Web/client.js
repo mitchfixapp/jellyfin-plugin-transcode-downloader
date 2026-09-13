@@ -376,17 +376,11 @@
         // MUI icon group is a plain left-to-right flex row, so the button is appended at its end.
         var legacy = host.matches(LEGACY_HEADER_HOSTS);
         dressForHost(host, legacy);
-        if (legacy) {
-          host.insertBefore(headerBtn, host.firstChild);
-        } else {
-          // Slot in before the last Jellyfin icon (search) rather than after it: the group is
-          // right-aligned and search sits flush against the user-menu avatar, so a button appended
-          // there — badge and all — crowds the avatar. Before search it gets the normal icon gap
-          // on both sides and Jellyfin's own right edge stays exactly as it is.
-          var icons = Array.prototype.filter.call(host.children, function (c) { return c !== headerBtn && c.matches(".MuiIconButton-root"); });
-          var last = icons.length ? icons[icons.length - 1] : null;
-          if (last) { host.insertBefore(headerBtn, last); } else { host.appendChild(headerBtn); }
-        }
+        // Leftmost slot in both headers. In the MUI header the icon group is right-aligned with
+        // search flush against the user-menu avatar, so anything appended at the end — badge and
+        // all — crowds the avatar; first in the row it gets the normal icon gap and Jellyfin's own
+        // icons keep their exact positions.
+        host.insertBefore(headerBtn, host.firstChild);
       }
     } else if (headerBtn.parentNode !== document.body) {
       headerBtn.className = LEGACY_BUTTON_CLASS;

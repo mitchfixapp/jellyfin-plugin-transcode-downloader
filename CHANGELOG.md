@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.4-beta.6 - 2026-09-13
+- On Jellyfin 12 the header icon for a minimized download is now the leftmost icon in the header's
+  icon row, so Jellyfin's own icons keep their usual positions.
+
 ## v1.2.4-beta.5 - 2026-09-13
 - On Jellyfin 12 the header icon for a minimized download now sits between the cast and search
   icons instead of squeezed against the profile picture, so the spacing matches the other icons.
