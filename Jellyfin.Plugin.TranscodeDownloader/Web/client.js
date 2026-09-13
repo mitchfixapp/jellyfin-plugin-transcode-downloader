@@ -294,10 +294,25 @@
     if (minimizedPanel === ov) { minimizedPanel = null; tick(); }
   }
 
+  var LEGACY_HEADER_HOSTS = ".headerRight, .headerButtons, .skinHeader";
+
   function headerHost() {
-    return document.querySelector(".headerRight")
+    var legacy = document.querySelector(".headerRight")
       || document.querySelector(".skinHeader .headerButtons")
       || document.querySelector(".skinHeader");
+    if (isVisible(legacy)) { return legacy; }
+
+    // Jellyfin 12 renders its header as a MUI AppBar and keeps the legacy .skinHeader in the DOM
+    // but hidden (0x0). The toolbar holds the navigation on the left, then the icon group
+    // (random / play / SyncPlay / cast / search) and, last, the user-menu box. The button joins
+    // the icon group so it sits next to the other header icons, just before the user menu.
+    var toolbar = document.querySelector("header.MuiAppBar-root .MuiToolbar-root");
+    if (toolbar) {
+      var groups = Array.prototype.filter.call(toolbar.children, function (c) { return !!c.querySelector("button"); });
+      var host = groups.length > 1 ? groups[groups.length - 2] : groups[0];
+      if (host) { return host; }
+    }
+    return legacy;
   }
 
   function isVisible(el) {
@@ -305,6 +320,8 @@
   }
 
   var HEADER_STYLE = "position:relative;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;color:inherit;cursor:pointer;padding:.4em;";
+  // Sized like a MUI IconButton so it lines up with the Jellyfin 12 header icons.
+  var MUI_HEADER_STYLE = HEADER_STYLE + "width:40px;height:40px;padding:0;margin:0 4px;border-radius:50%;";
   var FLOAT_STYLE = "position:fixed;right:1.2em;bottom:1.2em;z-index:2147483646;display:inline-flex;align-items:center;justify-content:center;background:#101418;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:.6em;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5);";
 
   // Jellyfin hides .headerRight on some screens (they carry a "noHeaderRight" header) and the
@@ -315,8 +332,11 @@
     var host = headerHost();
     if (isVisible(host)) {
       if (headerBtn.parentNode !== host) {
-        headerBtn.style.cssText = HEADER_STYLE;
-        host.insertBefore(headerBtn, host.firstChild);
+        // The legacy header lists its buttons right-to-left, so first child = leftmost slot; the
+        // MUI icon group is a plain left-to-right flex row, so the button is appended at its end.
+        var legacy = host.matches(LEGACY_HEADER_HOSTS);
+        headerBtn.style.cssText = legacy ? HEADER_STYLE : MUI_HEADER_STYLE;
+        if (legacy) { host.insertBefore(headerBtn, host.firstChild); } else { host.appendChild(headerBtn); }
       }
     } else if (headerBtn.parentNode !== document.body) {
       headerBtn.style.cssText = FLOAT_STYLE;

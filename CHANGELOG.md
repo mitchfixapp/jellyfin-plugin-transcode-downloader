@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.4-beta.2 - 2026-09-13
+- **Fixed**: on Jellyfin 12 the icon for a minimized download did not appear in the header (it fell
+  back to a floating button in the bottom-right corner). It now sits among the other header icons,
+  next to the user menu, like it does on Jellyfin 10.11.
+
 ## v1.2.4-beta.1 - 2026-09-13
 - **Fixed**: on Jellyfin 12 the Download button did nothing — no quality picker, no download. The
   plugin now signs in to the server the way Jellyfin 12 requires, while staying fully compatible
