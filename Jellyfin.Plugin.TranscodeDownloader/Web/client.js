@@ -321,7 +321,9 @@
 
   var HEADER_STYLE = "position:relative;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;color:inherit;cursor:pointer;padding:.4em;";
   // Sized like a MUI IconButton so it lines up with the Jellyfin 12 header icons.
-  var MUI_HEADER_STYLE = HEADER_STYLE + "width:40px;height:40px;padding:0;margin:0 4px;border-radius:50%;";
+  // overflow:visible because Jellyfin's paper-icon-button-light sets overflow:hidden, which with the
+  // round shape clips the progress badge sitting in the button's corner.
+  var MUI_HEADER_STYLE = HEADER_STYLE + "width:40px;height:40px;padding:0;margin:0 4px;border-radius:50%;overflow:visible;";
   var FLOAT_STYLE = "position:fixed;right:1.2em;bottom:1.2em;z-index:2147483646;display:inline-flex;align-items:center;justify-content:center;background:#101418;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:.6em;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5);";
 
   // Jellyfin hides .headerRight on some screens (they carry a "noHeaderRight" header) and the
@@ -336,6 +338,11 @@
         // MUI icon group is a plain left-to-right flex row, so the button is appended at its end.
         var legacy = host.matches(LEGACY_HEADER_HOSTS);
         headerBtn.style.cssText = legacy ? HEADER_STYLE : MUI_HEADER_STYLE;
+        if (headerBadge) {
+          // In the round MUI button the badge hangs just outside the top-right edge.
+          headerBadge.style.top = legacy ? "0" : "2px";
+          headerBadge.style.right = legacy ? "0" : "-2px";
+        }
         if (legacy) { host.insertBefore(headerBtn, host.firstChild); } else { host.appendChild(headerBtn); }
       }
     } else if (headerBtn.parentNode !== document.body) {

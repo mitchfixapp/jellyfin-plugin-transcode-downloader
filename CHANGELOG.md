@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.4-beta.3 - 2026-09-13
+- **Fixed**: on Jellyfin 12 the progress badge on the header icon was partly cut off by the round
+  button shape.
+
 ## v1.2.4-beta.2 - 2026-09-13
 - **Fixed**: on Jellyfin 12 the icon for a minimized download did not appear in the header (it fell
   back to a floating button in the bottom-right corner). It now sits among the other header icons,
