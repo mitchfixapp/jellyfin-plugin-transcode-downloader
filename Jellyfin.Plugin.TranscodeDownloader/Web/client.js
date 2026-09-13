@@ -305,7 +305,7 @@
     // Jellyfin 12 renders its header as a MUI AppBar and keeps the legacy .skinHeader in the DOM
     // but hidden (0x0). The toolbar holds the navigation on the left, then the icon group
     // (random / play / SyncPlay / cast / search) and, last, the user-menu box. The button joins
-    // the icon group so it sits next to the other header icons, just before the user menu.
+    // the icon group so it sits among the other header icons (see place() for the exact slot).
     var toolbar = document.querySelector("header.MuiAppBar-root .MuiToolbar-root");
     if (toolbar) {
       var groups = Array.prototype.filter.call(toolbar.children, function (c) { return !!c.querySelector("button"); });
@@ -345,7 +345,8 @@
   // icons. The legacy header (10.11) keeps the plugin's original look.
   function dressForHost(host, legacy) {
     var svg = headerBtn.querySelector("svg");
-    var ref = legacy ? null : host.querySelector("button.MuiIconButton-root");
+    // Any IconButton will do as the template (the search icon is an <a>, the others <button>).
+    var ref = legacy ? null : (host.querySelector("button.MuiIconButton-root") || host.querySelector(".MuiIconButton-root"));
     if (ref) {
       headerBtn.className = ref.className;
       headerBtn.style.cssText = "position:relative;overflow:visible;";
@@ -375,7 +376,17 @@
         // MUI icon group is a plain left-to-right flex row, so the button is appended at its end.
         var legacy = host.matches(LEGACY_HEADER_HOSTS);
         dressForHost(host, legacy);
-        if (legacy) { host.insertBefore(headerBtn, host.firstChild); } else { host.appendChild(headerBtn); }
+        if (legacy) {
+          host.insertBefore(headerBtn, host.firstChild);
+        } else {
+          // Slot in before the last Jellyfin icon (search) rather than after it: the group is
+          // right-aligned and search sits flush against the user-menu avatar, so a button appended
+          // there — badge and all — crowds the avatar. Before search it gets the normal icon gap
+          // on both sides and Jellyfin's own right edge stays exactly as it is.
+          var icons = Array.prototype.filter.call(host.children, function (c) { return c !== headerBtn && c.matches(".MuiIconButton-root"); });
+          var last = icons.length ? icons[icons.length - 1] : null;
+          if (last) { host.insertBefore(headerBtn, last); } else { host.appendChild(headerBtn); }
+        }
       }
     } else if (headerBtn.parentNode !== document.body) {
       headerBtn.className = LEGACY_BUTTON_CLASS;
