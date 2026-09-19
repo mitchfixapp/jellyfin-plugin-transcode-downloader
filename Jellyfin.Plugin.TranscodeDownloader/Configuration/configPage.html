@@ -106,6 +106,16 @@
                     </div>
 
                     <hr class="td-div">
+                    <h3 class="td-h">Remote encoder</h3>
+                    <p class="td-sub">Only needed when ffmpeg runs on a different machine than Jellyfin (e.g. ffmpeg-over-ip).</p>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="EncoderServerUrl">Server address for the encoder (optional)</label>
+                        <input id="EncoderServerUrl" name="EncoderServerUrl" type="text" is="emby-input" placeholder="http://192.168.1.10:8096" />
+                        <div class="fieldDescription">The address at which the <b>ffmpeg host</b> can reach this Jellyfin server: scheme, hostname or IP, and port. Leave empty when ffmpeg runs on this machine (the default <code>http://127.0.0.1</code> then works). If Jellyfin uses a Base URL, it is added automatically.</div>
+                    </div>
+
+                    <hr class="td-div">
                     <h3 class="td-h">Quality presets</h3>
                     <p class="td-sub">
                         The download options offered to users. <b>Min. source width</b> hides a quality when the
@@ -300,6 +310,7 @@
                     document.querySelector('#CleanupAfterDays').value = config.CleanupAfterDays;
                     document.querySelector('#MaxCacheGb').value = config.MaxCacheBytes ? Math.round((config.MaxCacheBytes / 1073741824) * 100) / 100 : 0;
                     document.querySelector('#WorkPath').value = config.WorkPath || '';
+                    document.querySelector('#EncoderServerUrl').value = config.EncoderServerUrl || '';
                     tdSetPresets(config.Qualities);
                     Dashboard.hideLoadingMsg();
                 });
@@ -321,6 +332,7 @@
                     var gb = parseFloat(document.querySelector('#MaxCacheGb').value);
                     config.MaxCacheBytes = (isNaN(gb) || gb <= 0) ? 0 : Math.round(gb * 1073741824);
                     config.WorkPath = document.querySelector('#WorkPath').value;
+                    config.EncoderServerUrl = (document.querySelector('#EncoderServerUrl').value || '').trim();
                     config.Qualities = tdReadPresets();
                     ApiClient.updatePluginConfiguration(TranscodeDownloaderConfig.pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);

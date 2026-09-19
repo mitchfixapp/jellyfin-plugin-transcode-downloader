@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.4-beta.7 - 2026-09-20
+- **New**: a *Server address for the encoder* setting for setups where ffmpeg runs on another
+  machine (e.g. ffmpeg-over-ip). Enter the address at which the ffmpeg host can reach Jellyfin and
+  transcoded downloads work again; leave it empty for the usual same-machine setup. (#7)
+
 ## v1.2.4-beta.6 - 2026-09-13
 - On Jellyfin 12 the header icon for a minimized download is now the leftmost icon in the header's
   icon row, so Jellyfin's own icons keep their usual positions.

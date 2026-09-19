@@ -186,6 +186,7 @@ repository above.
 | **Delete finished files after (days)** | Retention; a scheduled task removes completed transcodes. |
 | **Max cache size (GB)** | Total cache ceiling. When exceeded, the oldest finished files are evicted first; in-progress transcodes are never removed. `0` = unlimited. |
 | **Work folder** | Where temporary transcodes are written (default: cache folder). |
+| **Server address for the encoder** | Only for a remote ffmpeg (e.g. [ffmpeg-over-ip](https://github.com/steelbrain/ffmpeg-over-ip)): the `http(s)://host:port` at which the ffmpeg host can reach Jellyfin. Empty = `127.0.0.1`, which is right when ffmpeg runs next to Jellyfin. |
 | **Quality presets (JSON)** | `label`, `maxHeight`, `minSourceWidth` (anti-upscale gate), `videoBitrate` (bits/sec). |
 
 ## Troubleshooting

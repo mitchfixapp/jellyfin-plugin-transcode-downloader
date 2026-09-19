@@ -58,4 +58,12 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Gets or sets an optional override path for temporary transcode files. Empty = plugin cache folder.</summary>
     public string WorkPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the address (scheme, host and port) at which the encoder process can reach this
+    /// Jellyfin server, e.g. "http://192.168.1.10:8096". Only needed when ffmpeg does not run on
+    /// the same machine as Jellyfin (ffmpeg-over-ip, remote encoder), because the default
+    /// 127.0.0.1 then points at the encoder host instead of the server. Empty = local loopback.
+    /// </summary>
+    public string EncoderServerUrl { get; set; } = string.Empty;
 }

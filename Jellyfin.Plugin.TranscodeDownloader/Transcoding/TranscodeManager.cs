@@ -1027,11 +1027,39 @@ public sealed class TranscodeManager : IDisposable
         var query = string.Join("&", q.Select(kv => kv.Key + "=" + Uri.EscapeDataString(kv.Value)));
         return string.Format(
             CultureInfo.InvariantCulture,
-            "http://127.0.0.1:{0}{1}/Videos/{2}/stream.mp4?{3}",
-            net.InternalHttpPort,
+            "{0}{1}/Videos/{2}/stream.mp4?{3}",
+            ResolveServerOrigin(net.InternalHttpPort, baseUrl),
             baseUrl,
             id,
             query);
+    }
+
+    /// <summary>
+    /// Returns the origin (scheme://host:port) ffmpeg should use to reach this server. By default
+    /// that is the local loopback on the internal HTTP port, which is fine when ffmpeg runs next to
+    /// Jellyfin. When the admin configured an encoder-facing address (ffmpeg on another machine via
+    /// ffmpeg-over-ip or similar), that address is used instead. A missing scheme defaults to http,
+    /// and a trailing copy of Jellyfin's Base URL path is dropped so it is not appended twice.
+    /// </summary>
+    private string ResolveServerOrigin(int internalHttpPort, string baseUrl)
+    {
+        var configured = (Config.EncoderServerUrl ?? string.Empty).Trim().TrimEnd('/');
+        if (configured.Length == 0)
+        {
+            return string.Format(CultureInfo.InvariantCulture, "http://127.0.0.1:{0}", internalHttpPort);
+        }
+
+        if (!configured.Contains("://", StringComparison.Ordinal))
+        {
+            configured = "http://" + configured;
+        }
+
+        if (baseUrl.Length > 0 && configured.EndsWith(baseUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            configured = configured[..^baseUrl.Length].TrimEnd('/');
+        }
+
+        return configured;
     }
 
     private static QualityPreset ResolvePreset(int requestedHeight, int srcWidth)
