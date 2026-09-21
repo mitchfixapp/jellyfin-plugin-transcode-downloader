@@ -46,6 +46,9 @@ public class TranscodeJob
     /// <summary>Gets or sets the progress percentage (0-100).</summary>
     public double Progress { get; set; }
 
+    /// <summary>Gets or sets the last output position ffmpeg reported, in seconds of media.</summary>
+    public double OutTimeSeconds { get; set; }
+
     /// <summary>Gets or sets the finished file size in bytes.</summary>
     public long Size { get; set; }
 

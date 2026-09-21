@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.4-beta.9 - 2026-09-21
+- **Fixed**: with ffmpeg-over-ip (v5+) downloads stopped after a few minutes of video. The
+  tunnel damaged the fragmented MP4 that Jellyfin produces as the intermediate stream, so ffmpeg
+  quietly finished early. When an encoder address is set (or the new *Request the intermediate
+  transcode as MPEG-TS* option is on), the plugin now requests that stream as MPEG-TS, which is
+  unaffected, and the download is complete again. (#7)
+- **Fixed**: a download whose intermediate stream ends early is now reported as a failure
+  ("The transcode stream ended early") instead of being offered as a finished, cut-short file.
+
 ## v1.2.4-beta.8 - 2026-09-21
 - **Improved**: when ffmpeg finishes but its output never reaches the Jellyfin side (a remote
   encoder whose files are not shared with Jellyfin), the download now fails with a message that

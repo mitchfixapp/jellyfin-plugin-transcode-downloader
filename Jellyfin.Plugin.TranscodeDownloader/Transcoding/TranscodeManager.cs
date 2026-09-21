@@ -80,6 +80,9 @@ public sealed class TranscodeManager : IDisposable
     private static IReadOnlyList<QualityPreset> EffectiveQualities =>
         Config.Qualities.Count > 0 ? Config.Qualities : DefaultQualities;
 
+    private static bool UseSequentialIntermediate =>
+        Config.SequentialIntermediate || !string.IsNullOrWhiteSpace(Config.EncoderServerUrl);
+
     private string WorkDir =>
         string.IsNullOrWhiteSpace(Config.WorkPath)
             ? Path.Combine(_appPaths.CachePath, "transcode-downloader")
@@ -750,6 +753,16 @@ public sealed class TranscodeManager : IDisposable
 
                         if (process.ExitCode == 0 && await WaitForOutputAsync(tempPath).ConfigureAwait(false))
                         {
+                            if (IsTruncated(job, out var truncatedError))
+                            {
+                                // Not retried: the same intermediate stream would end at the same place.
+                                TryDelete(tempPath);
+                                job.Error = truncatedError;
+                                TryAdvance(job, JobState.Error);
+                                _logger.LogWarning("[TranscodeDownloader] job {Id} failed: {Error}", job.Id, truncatedError);
+                                return;
+                            }
+
                             Promote(tempPath, job);
                             job.Progress = 100;
                             if (!TryAdvance(job, JobState.Done))
@@ -1014,6 +1027,7 @@ public sealed class TranscodeManager : IDisposable
             && double.TryParse(m.Groups[3].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var s))
         {
             var secs = (h * 3600) + (min * 60) + s;
+            job.OutTimeSeconds = secs;
             job.Progress = Math.Min(99, secs / job.DurationSeconds * 100);
         }
     }
@@ -1023,12 +1037,19 @@ public sealed class TranscodeManager : IDisposable
         var net = _serverConfig.GetNetworkConfiguration();
         var baseUrl = (net.BaseUrl ?? string.Empty).TrimEnd('/');
         var id = itemId.ToString("N", CultureInfo.InvariantCulture);
+
+        // Jellyfin writes a progressive MP4 as fragmented MP4, and ffmpeg's muxer patches every
+        // fragment header afterwards with a seek-back write. An encoder whose file I/O is tunneled
+        // (ffmpeg-over-ip v5+) loses some of those patches, which leaves zero-sized boxes in the
+        // stream and makes the remux stop early with a clean exit. MPEG-TS is written strictly
+        // sequentially and has no such patches, so remote-encoder setups use it as the intermediate.
+        var container = UseSequentialIntermediate ? "ts" : "mp4";
         var q = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["static"] = "false",
             ["mediaSourceId"] = id,
             ["deviceId"] = "transcode-downloader-" + jobId.ToString("N", CultureInfo.InvariantCulture),
-            ["container"] = "mp4",
+            ["container"] = container,
             ["videoCodec"] = Config.VideoCodec,
             ["audioCodec"] = "aac",
             ["maxHeight"] = preset.MaxHeight.ToString(CultureInfo.InvariantCulture),
@@ -1042,10 +1063,11 @@ public sealed class TranscodeManager : IDisposable
         var query = string.Join("&", q.Select(kv => kv.Key + "=" + Uri.EscapeDataString(kv.Value)));
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0}{1}/Videos/{2}/stream.mp4?{3}",
+            "{0}{1}/Videos/{2}/stream.{3}?{4}",
             ResolveServerOrigin(net.InternalHttpPort, baseUrl),
             baseUrl,
             id,
+            container,
             query);
     }
 
@@ -1212,6 +1234,29 @@ public sealed class TranscodeManager : IDisposable
                 _runningCount--;
             }
         }
+    }
+
+    /// <summary>
+    /// Detects a remux that exited cleanly but well short of the item's duration. ffmpeg's last
+    /// progress line says how far it got; when that is under 90% of the runtime the intermediate
+    /// stream ended early (Jellyfin stopped its transcode, or a remote encoder's output was damaged
+    /// in transit) and the file would play but stop short. Jobs without progress data (unknown
+    /// runtime) are not judged.
+    /// </summary>
+    private static bool IsTruncated(TranscodeJob job, out string error)
+    {
+        error = string.Empty;
+        if (job.DurationSeconds <= 0 || job.OutTimeSeconds <= 0 || job.OutTimeSeconds >= job.DurationSeconds * 0.9)
+        {
+            return false;
+        }
+
+        error = string.Format(
+            CultureInfo.InvariantCulture,
+            "The transcode stream ended early: ffmpeg received {0:0.0} of {1:0.0} minutes, so the download would be cut short. If ffmpeg runs on another machine (ffmpeg-over-ip), set the encoder address or enable 'Request the intermediate transcode as MPEG-TS' under Remote encoder in the plugin settings.",
+            job.OutTimeSeconds / 60,
+            job.DurationSeconds / 60);
+        return true;
     }
 
     /// <summary>
