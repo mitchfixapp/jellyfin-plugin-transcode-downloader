@@ -1,229 +1,237 @@
 [
-    {
-        "guid": "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
-        "name": "Transcode Downloader (Beta)",
-        "description": "Beta channel for Transcode Downloader. Pre-release builds for testing before they ship to the stable repository.",
-        "overview": "Pre-release channel — quality picker for downloads, powered by the built-in Jellyfin transcoder.",
-        "owner": "MitchFix.App",
-        "category": "General",
-        "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
-        "versions": [
-            {
-                "version": "1.2.4.8",
-                "changelog": "- **Improved**: when ffmpeg finishes but its output never reaches the Jellyfin side (a remote\n  encoder whose files are not shared with Jellyfin), the download now fails with a message that\n  names the missing file and explains what to configure, instead of a silent failure. The plugin\n  also waits a few seconds for a remote encoder's last writes to arrive before giving up. (#7)\n- **Improved**: hovering the red retry icon of a failed download now shows the reason for the\n  failure, so it can be understood without opening the Jellyfin log.\n- The settings page and README now describe what a remote ffmpeg needs to reach: this server, the\n  media files and the plugin's work folder.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.8/transcode-downloader_1.2.4.8.zip",
-                "checksum": "403054d853a7ace46bbd9b3fff515aa4",
-                "timestamp": "2026-09-21T17:17:10.0000000Z"
-            },
-            {
-                "version": "1.2.4.7",
-                "changelog": "- **New**: a *Server address for the encoder* setting for setups where ffmpeg runs on another\n  machine (e.g. ffmpeg-over-ip). Enter the address at which the ffmpeg host can reach Jellyfin and\n  transcoded downloads work again; leave it empty for the usual same-machine setup. (#7)",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.7/transcode-downloader_1.2.4.7.zip",
-                "checksum": "1ff9b49cabf2959a90d95540fcc74357",
-                "timestamp": "2026-09-19T22:43:16.0000000Z"
-            },
-            {
-                "version": "1.2.4.6",
-                "changelog": "- On Jellyfin 12 the header icon for a minimized download is now the leftmost icon in the header's\n  icon row, so Jellyfin's own icons keep their usual positions.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.6/transcode-downloader_1.2.4.6.zip",
-                "checksum": "d0eb4bd173401c53b18262b623b112c1",
-                "timestamp": "2026-09-13T17:53:28.0000000Z"
-            },
-            {
-                "version": "1.2.4.5",
-                "changelog": "- On Jellyfin 12 the header icon for a minimized download now sits between the cast and search\n  icons instead of squeezed against the profile picture, so the spacing matches the other icons.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.5/transcode-downloader_1.2.4.5.zip",
-                "checksum": "316846145faca5e529c26d80d80bb986",
-                "timestamp": "2026-09-13T17:49:09.0000000Z"
-            },
-            {
-                "version": "1.2.4.4",
-                "changelog": "- On Jellyfin 12 the header icon for a minimized download now looks exactly like Jellyfin's own\n  header icons: same size and alignment, the same hover effect, and the progress badge no longer\n  crowds the profile icon next to it.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.4/transcode-downloader_1.2.4.4.zip",
-                "checksum": "9cd8399267f27ffab7df9f3b90b39100",
-                "timestamp": "2026-09-13T17:39:09.0000000Z"
-            },
-            {
-                "version": "1.2.4.3",
-                "changelog": "- **Fixed**: on Jellyfin 12 the progress badge on the header icon was partly cut off by the round\n  button shape.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.3/transcode-downloader_1.2.4.3.zip",
-                "checksum": "4dd7cde8e6dbec9307e0a757a95dcba2",
-                "timestamp": "2026-09-13T17:21:18.0000000Z"
-            },
-            {
-                "version": "1.2.4.2",
-                "changelog": "- **Fixed**: on Jellyfin 12 the icon for a minimized download did not appear in the header (it fell\n  back to a floating button in the bottom-right corner). It now sits among the other header icons,\n  next to the user menu, like it does on Jellyfin 10.11.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.2/transcode-downloader_1.2.4.2.zip",
-                "checksum": "a65e29b3f0cb70ad50b6994324837efd",
-                "timestamp": "2026-09-13T17:13:47.0000000Z"
-            },
-            {
-                "version": "1.2.4.1",
-                "changelog": "- **Fixed**: on Jellyfin 12 the Download button did nothing — no quality picker, no download. The\n  plugin now signs in to the server the way Jellyfin 12 requires, while staying fully compatible\n  with Jellyfin 10.11.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.1/transcode-downloader_1.2.4.1.zip",
-                "checksum": "734237ce2a92a5b937a741ae6009f45c",
-                "timestamp": "2026-09-13T16:56:08.0000000Z"
-            },
-            {
-                "version": "1.2.3.4",
-                "changelog": "- **Fixed**: downloading a single episode headed its group with the episode title instead of the\n  series, so the panel read \"Road Rage Vigilante or Family Protector?\" twice with no clue which show\n  it belonged to. The group is now headed with the series and the episode names its own row.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.4/transcode-downloader_1.2.3.4.zip",
-                "checksum": "16c562665fd7c86aadf86f78b8d06cf8",
-                "timestamp": "2026-08-16T12:32:40.0000000Z"
-            },
-            {
-                "version": "1.2.3.3",
-                "changelog": "- **One Downloads panel for everything**: every download you start now lands in a single panel, one\n  group per movie, series or season, each labelled with its own title. Starting a second batch while\n  the first is still running no longer hides the first — they sit under each other, the header badge\n  reflects the whole queue, and each group can be dropped on its own with its ✕ while the rest keeps\n  going.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.3/transcode-downloader_1.2.3.3.zip",
-                "checksum": "869ebd5da05610a013e6d31fa485dab7",
-                "timestamp": "2026-08-16T12:23:41.0000000Z"
-            },
-            {
-                "version": "1.2.3.2",
-                "changelog": "- **Fixed**: the progress badge on the header icon stayed on 0% for a \"Download all\" batch until a\n  whole episode had finished. It now follows the actual progress of the episodes being transcoded,\n  and when several downloads are minimized at once the percentage is weighted by how much work each\n  one represents.\n- The button that closes a download panel now reads **Cancel** while transcodes are still running —\n  it stops them — and only becomes **Close** once everything has finished.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.2/transcode-downloader_1.2.3.2.zip",
-                "checksum": "7d6a1811732f9a42e89ce2455ff491c7",
-                "timestamp": "2026-08-14T15:51:19.0000000Z"
-            },
-            {
-                "version": "1.2.3.1",
-                "changelog": "- **Minimize a transcode**: the progress dialog no longer holds the screen for the whole transcode.\n  **Minimize** parks it — the transcode keeps running — and a download icon with a progress badge\n  appears in the header. Click it to bring the panel back; the badge turns green when the file is\n  ready. Clicking outside the dialog now minimizes it too, so a stray click can no longer throw away\n  a transcode. **Cancel** is still the only thing that stops a job. Works for single downloads and\n  for \"Download all\".\n- **Reloading the page no longer loses a transcode**: after a refresh — or when you come back to\n  Jellyfin later — running and finished downloads are picked up again and wait behind the same\n  header icon, so a file that finished while you were away is still one click away.\n\n  Thanks to [@ndom91](https://github.com/ndom91) for the suggestion.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.1/transcode-downloader_1.2.3.1.zip",
-                "checksum": "04d9080bce28c7a92ec4c0661633c294",
-                "timestamp": "2026-08-14T15:40:05.0000000Z"
-            },
-            {
-                "version": "1.2.2.1",
-                "changelog": "- **Fixed**: the plugin failed to load — showing status **\"NotSupported\"** — on any Jellyfin 10.11.x\n  release older than the exact patch it was built against (e.g. on 10.11.8). It was compiled against\n  too new a Jellyfin version; it now targets the minimum 10.11 and loads on every 10.11.x server.\n\n  Thanks to [@riendril](https://github.com/riendril) for the detailed report and fix.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.2-beta.1/transcode-downloader_1.2.2.1.zip",
-                "checksum": "64c69e0e1e2f6264b587576ed290188f",
-                "timestamp": "2026-07-02T18:43:12.0000000Z"
-            },
-            {
-                "version": "1.2.1.3",
-                "changelog": "- **Fixed**: the quality picker could still fall through to a normal download — showing no picker —\n  when **Download** was clicked quickly after opening a menu, or when a menu had been open for a\n  while. The picker now reliably appears in those cases.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.1-beta.3/transcode-downloader_1.2.1.3.zip",
-                "checksum": "81ddec36ad1f059e53966d8b9370c208",
-                "timestamp": "2026-06-30T20:47:10.0000000Z"
-            },
-            {
-                "version": "1.2.1.2",
-                "changelog": "- **Fixed**: choosing **Download** from a card's `⋮` menu on a detail page now acts on the card you\n  clicked, not on the page's own item. Downloading a single episode from a series or season page, or\n  a \"More Like This\" title from a movie page, now opens the picker for the right item — instead of\n  the series (which failed) or the current movie (which downloaded the wrong title).",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.1-beta.2/transcode-downloader_1.2.1.2.zip",
-                "checksum": "bae1ccc6b6dbe4d750c77e9cc26a8294",
-                "timestamp": "2026-06-30T20:07:54.0000000Z"
-            },
-            {
-                "version": "1.2.1.1",
-                "changelog": "- **Fixed**: the quality picker now also appears when you choose **Download** from a card's `⋮`\n  menu on the home and library pages — previously it only worked from an item's detail page.\n  Items the plugin can't transcode now fall through to Jellyfin's normal download instead of\n  doing nothing.\n\n  Thanks to [@Reaster0](https://github.com/Reaster0) for the fix.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.1-beta.1/transcode-downloader_1.2.1.1.zip",
-                "checksum": "91b7d0ceec2df14af3735cf84257d6b7",
-                "timestamp": "2026-06-30T19:41:36.0000000Z"
-            },
-            {
-                "version": "1.2.0.1",
-                "changelog": "- **Max cache size (GB)**: a new setting caps the total size of cached transcodes. Once the cache\n  passes the limit, the oldest finished files are removed first to make room; a download that is\n  still in progress is never deleted. Leave it at 0 to keep the cache unlimited (previous behaviour).\n- **Fixed**: the quality picker no longer takes over the download buttons in Jellyfin's subtitle\n  search dialog, so downloading a subtitle works normally again.\n\n  Thanks to [@Reaster0](https://github.com/Reaster0) for reporting both issues and proposing fixes.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.0-beta.1/transcode-downloader_1.2.0.1.zip",
-                "checksum": "26df1507713e4f4f1b5e81bd00441eee",
-                "timestamp": "2026-06-27T13:16:05.0000000Z"
-            },
-            {
-                "version": "1.1.1.1",
-                "changelog": "- Cancelling a download now reliably stops the transcode; a cancelled download can no longer keep\n  running and finish in the background.\n- The \"max concurrent transcodes\" setting now applies immediately, without a server restart.\n- Closing a download dialog always stops its background polling and cleans up.\n- Internal hardening of the cache handling and of how item names are shown in the dialogs.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.1-beta.1/transcode-downloader_1.1.1.1.zip",
-                "checksum": "2565cf7a84fc0552f066345ca35a87bd",
-                "timestamp": "2026-06-09T20:42:27.0000000Z"
-            },
-            {
-                "version": "1.1.0.9",
-                "changelog": "- Settings: move the \"Offer Original\" option down to the Quality presets section, since it is one\n  of the download options offered alongside the transcode qualities.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.9/transcode-downloader_1.1.0.9.zip",
-                "checksum": "a06c6a1c36124e5be41f0f920f5754ed",
-                "timestamp": "2026-06-08T19:27:36.0000000Z"
-            },
-            {
-                "version": "1.1.0.8",
-                "changelog": "- The default retention for finished transcode files is now 7 days (was 1 day).",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.8/transcode-downloader_1.1.0.8.zip",
-                "checksum": "9c18c020a89cc49eb59981c8fcce16c6",
-                "timestamp": "2026-06-08T19:25:02.0000000Z"
-            },
-            {
-                "version": "1.1.0.7",
-                "changelog": "- A running transcode is now never auto-cancelled, and auto-cancellation is off by default. When\n  you do turn it on, it only drops jobs that are still queued (not started yet); anything already\n  transcoding always runs to completion.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.7/transcode-downloader_1.1.0.7.zip",
-                "checksum": "6c63f6ff29bcd49dcf64ee1dd6c75c2c",
-                "timestamp": "2026-06-08T18:50:39.0000000Z"
-            },
-            {
-                "version": "1.1.0.6",
-                "changelog": "- The \"Download all\" batch grace is now configurable (default one day), and there is a switch to\n  turn off auto-cancellation entirely, so large batches or slow software encoding are not\n  interrupted when you look away.\n- Settings: add a \"Stop all transcodes now\" button and a \"Clear cached files now\" button.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.6/transcode-downloader_1.1.0.6.zip",
-                "checksum": "d715a239bc84591d3a66cca80c0be462",
-                "timestamp": "2026-06-08T18:40:34.0000000Z"
-            },
-            {
-                "version": "1.1.0.5",
-                "changelog": "- Fix \"Download all\" stopping after a few episodes: a backgrounded browser tab no longer causes\n  the remaining episodes in a batch to be cancelled, so the whole set finishes.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.5/transcode-downloader_1.1.0.5.zip",
-                "checksum": "e6325092208691100db3664605d83c33",
-                "timestamp": "2026-06-08T16:44:20.0000000Z"
-            },
-            {
-                "version": "1.1.0.4",
-                "changelog": "- \"Download all\": add the **Original** option (it was only on single items), so you can grab every\n  episode's original file, with no transcode, for a whole season or series.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.4/transcode-downloader_1.1.0.4.zip",
-                "checksum": "84c9d7b220fb8dfcd3468bb5b48ff33a",
-                "timestamp": "2026-06-08T16:34:52.0000000Z"
-            },
-            {
-                "version": "1.1.0.3",
-                "changelog": "- Fix the redesigned settings page styling not loading, so the quality preset table and the\n  prerequisite banner now render at the right size.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.3/transcode-downloader_1.1.0.3.zip",
-                "checksum": "b013316809de7822599772574e201e9d",
-                "timestamp": "2026-06-08T12:03:20.0000000Z"
-            },
-            {
-                "version": "1.1.0.2",
-                "changelog": "- Repeat downloads are served from cache: download the same item and quality again while the\n  previous transcode is still cached and it is offered instantly instead of being re-encoded.\n- Redesigned settings page: edit the quality presets in a simple table instead of raw JSON, and a\n  banner tells you when the required File Transformation plugin is missing or needs a restart.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.2/transcode-downloader_1.1.0.2.zip",
-                "checksum": "811463d34aee955ac61714ed2fdae1cf",
-                "timestamp": "2026-06-08T11:39:54.0000000Z"
-            },
-            {
-                "version": "1.1.0.1",
-                "changelog": "- \"Download all\": the bulk button now unlocks only once **every** episode has transcoded\n  successfully. If an episode fails, a **retry** button appears next to it to re-run just that\n  one, and the bulk button stays locked until it succeeds.\n- \"Download all\": per-episode quality fallback — when you pick a quality that is higher than an\n  episode's source, that episode now downloads at the best quality its source allows instead of\n  being skipped, so a mixed-resolution season still completes.",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.1/transcode-downloader_1.1.0.1.zip",
-                "checksum": "9c15259b3ad48ece56cf4d7ac842d334",
-                "timestamp": "2026-06-07T22:18:21.0000000Z"
-            }
-        ]
-    }
+  {
+    "guid": "b3d8f1a0-7c42-4e9b-9a55-1f6e2c0d4a88",
+    "name": "Transcode Downloader (Beta)",
+    "description": "Beta channel for Transcode Downloader. Pre-release builds for testing before they ship to the stable repository.",
+    "overview": "Pre-release channel — quality picker for downloads, powered by the built-in Jellyfin transcoder.",
+    "owner": "MitchFix.App",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
+    "versions": [
+      {
+        "version": "1.2.4.9",
+        "changelog": "- **New**: *Request the intermediate transcode as MPEG-TS* setting under *Remote encoder*, for\n  ffmpeg-over-ip v5 and newer. Through its file tunnel a download could stop after a few minutes\n  because the plugin caught a fragment header of the intermediate MP4 before ffmpeg had finished\n  it; MPEG-TS is written sequentially and is not affected. Off by default; the finished download\n  is a regular MP4 either way. Background in `docs/remote-encoder.md`. (#7)\n- **Fixed**: a download whose intermediate stream ends early is now reported as a failure\n  (\"The transcode stream ended early\") instead of being offered as a finished, cut-short file.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.9/transcode-downloader_1.2.4.9.zip",
+        "checksum": "82c11f61c4ebc44147add3dd4cf7bd71",
+        "timestamp": "2026-09-21T20:45:12.0000000Z"
+      },
+      {
+        "version": "1.2.4.8",
+        "changelog": "- **Improved**: when ffmpeg finishes but its output never reaches the Jellyfin side (a remote\n  encoder whose files are not shared with Jellyfin), the download now fails with a message that\n  names the missing file and explains what to configure, instead of a silent failure. The plugin\n  also waits a few seconds for a remote encoder's last writes to arrive before giving up. (#7)\n- **Improved**: hovering the red retry icon of a failed download now shows the reason for the\n  failure, so it can be understood without opening the Jellyfin log.\n- The settings page and README now describe what a remote ffmpeg needs to reach: this server, the\n  media files and the plugin's work folder.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.8/transcode-downloader_1.2.4.8.zip",
+        "checksum": "403054d853a7ace46bbd9b3fff515aa4",
+        "timestamp": "2026-09-21T17:17:10.0000000Z"
+      },
+      {
+        "version": "1.2.4.7",
+        "changelog": "- **New**: a *Server address for the encoder* setting for setups where ffmpeg runs on another\n  machine (e.g. ffmpeg-over-ip). Enter the address at which the ffmpeg host can reach Jellyfin and\n  transcoded downloads work again; leave it empty for the usual same-machine setup. (#7)",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.7/transcode-downloader_1.2.4.7.zip",
+        "checksum": "1ff9b49cabf2959a90d95540fcc74357",
+        "timestamp": "2026-09-19T22:43:16.0000000Z"
+      },
+      {
+        "version": "1.2.4.6",
+        "changelog": "- On Jellyfin 12 the header icon for a minimized download is now the leftmost icon in the header's\n  icon row, so Jellyfin's own icons keep their usual positions.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.6/transcode-downloader_1.2.4.6.zip",
+        "checksum": "d0eb4bd173401c53b18262b623b112c1",
+        "timestamp": "2026-09-13T17:53:28.0000000Z"
+      },
+      {
+        "version": "1.2.4.5",
+        "changelog": "- On Jellyfin 12 the header icon for a minimized download now sits between the cast and search\n  icons instead of squeezed against the profile picture, so the spacing matches the other icons.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.5/transcode-downloader_1.2.4.5.zip",
+        "checksum": "316846145faca5e529c26d80d80bb986",
+        "timestamp": "2026-09-13T17:49:09.0000000Z"
+      },
+      {
+        "version": "1.2.4.4",
+        "changelog": "- On Jellyfin 12 the header icon for a minimized download now looks exactly like Jellyfin's own\n  header icons: same size and alignment, the same hover effect, and the progress badge no longer\n  crowds the profile icon next to it.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.4/transcode-downloader_1.2.4.4.zip",
+        "checksum": "9cd8399267f27ffab7df9f3b90b39100",
+        "timestamp": "2026-09-13T17:39:09.0000000Z"
+      },
+      {
+        "version": "1.2.4.3",
+        "changelog": "- **Fixed**: on Jellyfin 12 the progress badge on the header icon was partly cut off by the round\n  button shape.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.3/transcode-downloader_1.2.4.3.zip",
+        "checksum": "4dd7cde8e6dbec9307e0a757a95dcba2",
+        "timestamp": "2026-09-13T17:21:18.0000000Z"
+      },
+      {
+        "version": "1.2.4.2",
+        "changelog": "- **Fixed**: on Jellyfin 12 the icon for a minimized download did not appear in the header (it fell\n  back to a floating button in the bottom-right corner). It now sits among the other header icons,\n  next to the user menu, like it does on Jellyfin 10.11.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.2/transcode-downloader_1.2.4.2.zip",
+        "checksum": "a65e29b3f0cb70ad50b6994324837efd",
+        "timestamp": "2026-09-13T17:13:47.0000000Z"
+      },
+      {
+        "version": "1.2.4.1",
+        "changelog": "- **Fixed**: on Jellyfin 12 the Download button did nothing — no quality picker, no download. The\n  plugin now signs in to the server the way Jellyfin 12 requires, while staying fully compatible\n  with Jellyfin 10.11.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.1/transcode-downloader_1.2.4.1.zip",
+        "checksum": "734237ce2a92a5b937a741ae6009f45c",
+        "timestamp": "2026-09-13T16:56:08.0000000Z"
+      },
+      {
+        "version": "1.2.3.4",
+        "changelog": "- **Fixed**: downloading a single episode headed its group with the episode title instead of the\n  series, so the panel read \"Road Rage Vigilante or Family Protector?\" twice with no clue which show\n  it belonged to. The group is now headed with the series and the episode names its own row.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.4/transcode-downloader_1.2.3.4.zip",
+        "checksum": "16c562665fd7c86aadf86f78b8d06cf8",
+        "timestamp": "2026-08-16T12:32:40.0000000Z"
+      },
+      {
+        "version": "1.2.3.3",
+        "changelog": "- **One Downloads panel for everything**: every download you start now lands in a single panel, one\n  group per movie, series or season, each labelled with its own title. Starting a second batch while\n  the first is still running no longer hides the first — they sit under each other, the header badge\n  reflects the whole queue, and each group can be dropped on its own with its ✕ while the rest keeps\n  going.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.3/transcode-downloader_1.2.3.3.zip",
+        "checksum": "869ebd5da05610a013e6d31fa485dab7",
+        "timestamp": "2026-08-16T12:23:41.0000000Z"
+      },
+      {
+        "version": "1.2.3.2",
+        "changelog": "- **Fixed**: the progress badge on the header icon stayed on 0% for a \"Download all\" batch until a\n  whole episode had finished. It now follows the actual progress of the episodes being transcoded,\n  and when several downloads are minimized at once the percentage is weighted by how much work each\n  one represents.\n- The button that closes a download panel now reads **Cancel** while transcodes are still running —\n  it stops them — and only becomes **Close** once everything has finished.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.2/transcode-downloader_1.2.3.2.zip",
+        "checksum": "7d6a1811732f9a42e89ce2455ff491c7",
+        "timestamp": "2026-08-14T15:51:19.0000000Z"
+      },
+      {
+        "version": "1.2.3.1",
+        "changelog": "- **Minimize a transcode**: the progress dialog no longer holds the screen for the whole transcode.\n  **Minimize** parks it — the transcode keeps running — and a download icon with a progress badge\n  appears in the header. Click it to bring the panel back; the badge turns green when the file is\n  ready. Clicking outside the dialog now minimizes it too, so a stray click can no longer throw away\n  a transcode. **Cancel** is still the only thing that stops a job. Works for single downloads and\n  for \"Download all\".\n- **Reloading the page no longer loses a transcode**: after a refresh — or when you come back to\n  Jellyfin later — running and finished downloads are picked up again and wait behind the same\n  header icon, so a file that finished while you were away is still one click away.\n\n  Thanks to [@ndom91](https://github.com/ndom91) for the suggestion.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.3-beta.1/transcode-downloader_1.2.3.1.zip",
+        "checksum": "04d9080bce28c7a92ec4c0661633c294",
+        "timestamp": "2026-08-14T15:40:05.0000000Z"
+      },
+      {
+        "version": "1.2.2.1",
+        "changelog": "- **Fixed**: the plugin failed to load — showing status **\"NotSupported\"** — on any Jellyfin 10.11.x\n  release older than the exact patch it was built against (e.g. on 10.11.8). It was compiled against\n  too new a Jellyfin version; it now targets the minimum 10.11 and loads on every 10.11.x server.\n\n  Thanks to [@riendril](https://github.com/riendril) for the detailed report and fix.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.2-beta.1/transcode-downloader_1.2.2.1.zip",
+        "checksum": "64c69e0e1e2f6264b587576ed290188f",
+        "timestamp": "2026-07-02T18:43:12.0000000Z"
+      },
+      {
+        "version": "1.2.1.3",
+        "changelog": "- **Fixed**: the quality picker could still fall through to a normal download — showing no picker —\n  when **Download** was clicked quickly after opening a menu, or when a menu had been open for a\n  while. The picker now reliably appears in those cases.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.1-beta.3/transcode-downloader_1.2.1.3.zip",
+        "checksum": "81ddec36ad1f059e53966d8b9370c208",
+        "timestamp": "2026-06-30T20:47:10.0000000Z"
+      },
+      {
+        "version": "1.2.1.2",
+        "changelog": "- **Fixed**: choosing **Download** from a card's `⋮` menu on a detail page now acts on the card you\n  clicked, not on the page's own item. Downloading a single episode from a series or season page, or\n  a \"More Like This\" title from a movie page, now opens the picker for the right item — instead of\n  the series (which failed) or the current movie (which downloaded the wrong title).",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.1-beta.2/transcode-downloader_1.2.1.2.zip",
+        "checksum": "bae1ccc6b6dbe4d750c77e9cc26a8294",
+        "timestamp": "2026-06-30T20:07:54.0000000Z"
+      },
+      {
+        "version": "1.2.1.1",
+        "changelog": "- **Fixed**: the quality picker now also appears when you choose **Download** from a card's `⋮`\n  menu on the home and library pages — previously it only worked from an item's detail page.\n  Items the plugin can't transcode now fall through to Jellyfin's normal download instead of\n  doing nothing.\n\n  Thanks to [@Reaster0](https://github.com/Reaster0) for the fix.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.1-beta.1/transcode-downloader_1.2.1.1.zip",
+        "checksum": "91b7d0ceec2df14af3735cf84257d6b7",
+        "timestamp": "2026-06-30T19:41:36.0000000Z"
+      },
+      {
+        "version": "1.2.0.1",
+        "changelog": "- **Max cache size (GB)**: a new setting caps the total size of cached transcodes. Once the cache\n  passes the limit, the oldest finished files are removed first to make room; a download that is\n  still in progress is never deleted. Leave it at 0 to keep the cache unlimited (previous behaviour).\n- **Fixed**: the quality picker no longer takes over the download buttons in Jellyfin's subtitle\n  search dialog, so downloading a subtitle works normally again.\n\n  Thanks to [@Reaster0](https://github.com/Reaster0) for reporting both issues and proposing fixes.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.0-beta.1/transcode-downloader_1.2.0.1.zip",
+        "checksum": "26df1507713e4f4f1b5e81bd00441eee",
+        "timestamp": "2026-06-27T13:16:05.0000000Z"
+      },
+      {
+        "version": "1.1.1.1",
+        "changelog": "- Cancelling a download now reliably stops the transcode; a cancelled download can no longer keep\n  running and finish in the background.\n- The \"max concurrent transcodes\" setting now applies immediately, without a server restart.\n- Closing a download dialog always stops its background polling and cleans up.\n- Internal hardening of the cache handling and of how item names are shown in the dialogs.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.1-beta.1/transcode-downloader_1.1.1.1.zip",
+        "checksum": "2565cf7a84fc0552f066345ca35a87bd",
+        "timestamp": "2026-06-09T20:42:27.0000000Z"
+      },
+      {
+        "version": "1.1.0.9",
+        "changelog": "- Settings: move the \"Offer Original\" option down to the Quality presets section, since it is one\n  of the download options offered alongside the transcode qualities.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.9/transcode-downloader_1.1.0.9.zip",
+        "checksum": "a06c6a1c36124e5be41f0f920f5754ed",
+        "timestamp": "2026-06-08T19:27:36.0000000Z"
+      },
+      {
+        "version": "1.1.0.8",
+        "changelog": "- The default retention for finished transcode files is now 7 days (was 1 day).",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.8/transcode-downloader_1.1.0.8.zip",
+        "checksum": "9c18c020a89cc49eb59981c8fcce16c6",
+        "timestamp": "2026-06-08T19:25:02.0000000Z"
+      },
+      {
+        "version": "1.1.0.7",
+        "changelog": "- A running transcode is now never auto-cancelled, and auto-cancellation is off by default. When\n  you do turn it on, it only drops jobs that are still queued (not started yet); anything already\n  transcoding always runs to completion.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.7/transcode-downloader_1.1.0.7.zip",
+        "checksum": "6c63f6ff29bcd49dcf64ee1dd6c75c2c",
+        "timestamp": "2026-06-08T18:50:39.0000000Z"
+      },
+      {
+        "version": "1.1.0.6",
+        "changelog": "- The \"Download all\" batch grace is now configurable (default one day), and there is a switch to\n  turn off auto-cancellation entirely, so large batches or slow software encoding are not\n  interrupted when you look away.\n- Settings: add a \"Stop all transcodes now\" button and a \"Clear cached files now\" button.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.6/transcode-downloader_1.1.0.6.zip",
+        "checksum": "d715a239bc84591d3a66cca80c0be462",
+        "timestamp": "2026-06-08T18:40:34.0000000Z"
+      },
+      {
+        "version": "1.1.0.5",
+        "changelog": "- Fix \"Download all\" stopping after a few episodes: a backgrounded browser tab no longer causes\n  the remaining episodes in a batch to be cancelled, so the whole set finishes.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.5/transcode-downloader_1.1.0.5.zip",
+        "checksum": "e6325092208691100db3664605d83c33",
+        "timestamp": "2026-06-08T16:44:20.0000000Z"
+      },
+      {
+        "version": "1.1.0.4",
+        "changelog": "- \"Download all\": add the **Original** option (it was only on single items), so you can grab every\n  episode's original file, with no transcode, for a whole season or series.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.4/transcode-downloader_1.1.0.4.zip",
+        "checksum": "84c9d7b220fb8dfcd3468bb5b48ff33a",
+        "timestamp": "2026-06-08T16:34:52.0000000Z"
+      },
+      {
+        "version": "1.1.0.3",
+        "changelog": "- Fix the redesigned settings page styling not loading, so the quality preset table and the\n  prerequisite banner now render at the right size.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.3/transcode-downloader_1.1.0.3.zip",
+        "checksum": "b013316809de7822599772574e201e9d",
+        "timestamp": "2026-06-08T12:03:20.0000000Z"
+      },
+      {
+        "version": "1.1.0.2",
+        "changelog": "- Repeat downloads are served from cache: download the same item and quality again while the\n  previous transcode is still cached and it is offered instantly instead of being re-encoded.\n- Redesigned settings page: edit the quality presets in a simple table instead of raw JSON, and a\n  banner tells you when the required File Transformation plugin is missing or needs a restart.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.2/transcode-downloader_1.1.0.2.zip",
+        "checksum": "811463d34aee955ac61714ed2fdae1cf",
+        "timestamp": "2026-06-08T11:39:54.0000000Z"
+      },
+      {
+        "version": "1.1.0.1",
+        "changelog": "- \"Download all\": the bulk button now unlocks only once **every** episode has transcoded\n  successfully. If an episode fails, a **retry** button appears next to it to re-run just that\n  one, and the bulk button stays locked until it succeeds.\n- \"Download all\": per-episode quality fallback — when you pick a quality that is higher than an\n  episode's source, that episode now downloads at the best quality its source allows instead of\n  being skipped, so a mixed-resolution season still completes.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.1.0-beta.1/transcode-downloader_1.1.0.1.zip",
+        "checksum": "9c15259b3ad48ece56cf4d7ac842d334",
+        "timestamp": "2026-06-07T22:18:21.0000000Z"
+      }
+    ]
+  }
 ]
