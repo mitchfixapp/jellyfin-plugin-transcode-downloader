@@ -750,7 +750,7 @@ public sealed class TranscodeManager : IDisposable
 
                         if (process.ExitCode == 0 && await WaitForOutputAsync(tempPath).ConfigureAwait(false))
                         {
-                            if (IsTruncated(job, out var truncatedError))
+                            if (IsTruncated(job, tempPath, out var truncatedError))
                             {
                                 // Not retried: the same intermediate stream would end at the same place.
                                 TryDelete(tempPath);
@@ -1226,27 +1226,140 @@ public sealed class TranscodeManager : IDisposable
     }
 
     /// <summary>
-    /// Detects a remux that exited cleanly but well short of the item's duration. ffmpeg's last
-    /// progress line says how far it got; when that is under 90% of the runtime the intermediate
-    /// stream ended early (Jellyfin stopped its transcode, or a remote encoder's output was damaged
-    /// in transit) and the file would play but stop short. Jobs without progress data (unknown
-    /// runtime) are not judged.
+    /// Detects a remux that exited cleanly but produced a file well short of the item's runtime:
+    /// the intermediate stream ended early (Jellyfin stopped its transcode, or a remote encoder's
+    /// output was damaged in transit) and the file would play but stop short. The duration is read
+    /// from the file's own MP4 header; ffmpeg's progress output is not used for this because its
+    /// out_time follows the last output stream, which for a subtitle track is the last cue rather
+    /// than the end of the video. Files whose header cannot be read, and items without a known
+    /// runtime, are not judged.
     /// </summary>
-    private static bool IsTruncated(TranscodeJob job, out string error)
+    private static bool IsTruncated(TranscodeJob job, string path, out string error)
     {
         error = string.Empty;
-        if (job.DurationSeconds <= 0 || job.OutTimeSeconds <= 0 || job.OutTimeSeconds >= job.DurationSeconds * 0.9)
+        if (job.DurationSeconds <= 0)
+        {
+            return false;
+        }
+
+        var actual = ReadMp4DurationSeconds(path);
+        if (actual is null || actual.Value <= 0 || actual.Value >= job.DurationSeconds * 0.9)
         {
             return false;
         }
 
         error = string.Format(
             CultureInfo.InvariantCulture,
-            "The transcode stream ended early: ffmpeg received {0:0.0} of {1:0.0} minutes, so the download would be cut short. Check the Jellyfin log for why its transcode stopped; with a remote encoder, check that its output reaches this server intact.",
-            job.OutTimeSeconds / 60,
+            "The transcode stream ended early: the finished file holds {0:0.0} of {1:0.0} minutes, so the download would be cut short. Check the Jellyfin log for why its transcode stopped; with a remote encoder, check that its output reaches this server intact.",
+            actual.Value / 60,
             job.DurationSeconds / 60);
         return true;
     }
+
+    /// <summary>
+    /// Reads the presentation duration from an MP4's movie header (moov/mvhd). Top-level boxes are
+    /// walked from the start, skipping over mdat by its size, so this is cheap for both faststart
+    /// and non-faststart files. Returns null when no readable header is found.
+    /// </summary>
+    private static double? ReadMp4DurationSeconds(string path)
+    {
+        try
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var header = new byte[16];
+            long pos = 0;
+            for (var i = 0; i < 64 && pos + 8 <= fs.Length; i++)
+            {
+                fs.Seek(pos, SeekOrigin.Begin);
+                if (fs.Read(header, 0, 8) != 8)
+                {
+                    return null;
+                }
+
+                long size = ReadUInt32(header, 0);
+                var type = Encoding.ASCII.GetString(header, 4, 4);
+                var headerLength = 8;
+                if (size == 1)
+                {
+                    if (fs.Read(header, 8, 8) != 8)
+                    {
+                        return null;
+                    }
+
+                    size = (long)ReadUInt64(header, 8);
+                    headerLength = 16;
+                }
+                else if (size == 0)
+                {
+                    size = fs.Length - pos;
+                }
+
+                if (size < headerLength)
+                {
+                    return null;
+                }
+
+                if (type == "moov")
+                {
+                    return ReadMvhdDuration(fs, pos + headerLength, pos + size);
+                }
+
+                pos += size;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // unreadable: not judged
+        }
+
+        return null;
+    }
+
+    private static double? ReadMvhdDuration(FileStream fs, long start, long end)
+    {
+        var buf = new byte[32];
+        var pos = start;
+        while (pos + 8 <= end)
+        {
+            fs.Seek(pos, SeekOrigin.Begin);
+            if (fs.Read(buf, 0, 8) != 8)
+            {
+                return null;
+            }
+
+            long size = ReadUInt32(buf, 0);
+            var type = Encoding.ASCII.GetString(buf, 4, 4);
+            if (size < 8)
+            {
+                return null;
+            }
+
+            if (type == "mvhd")
+            {
+                // version(1) flags(3) then, for version 0: creation(4) modification(4) timescale(4)
+                // duration(4); for version 1: creation(8) modification(8) timescale(4) duration(8).
+                if (fs.Read(buf, 0, 32) < 24)
+                {
+                    return null;
+                }
+
+                var version = buf[0];
+                double timescale = version == 1 ? ReadUInt32(buf, 20) : ReadUInt32(buf, 12);
+                double duration = version == 1 ? ReadUInt64(buf, 24) : ReadUInt32(buf, 16);
+                return timescale > 0 ? duration / timescale : null;
+            }
+
+            pos += size;
+        }
+
+        return null;
+    }
+
+    private static uint ReadUInt32(byte[] b, int offset) =>
+        ((uint)b[offset] << 24) | ((uint)b[offset + 1] << 16) | ((uint)b[offset + 2] << 8) | b[offset + 3];
+
+    private static ulong ReadUInt64(byte[] b, int offset) =>
+        ((ulong)ReadUInt32(b, offset) << 32) | ReadUInt32(b, offset + 4);
 
     /// <summary>
     /// Returns true once a non-empty output file exists at <paramref name="path"/>. A remote encoder
