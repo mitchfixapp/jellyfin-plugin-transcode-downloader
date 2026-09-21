@@ -112,15 +112,7 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="EncoderServerUrl">Server address for the encoder (optional)</label>
                         <input id="EncoderServerUrl" name="EncoderServerUrl" type="text" is="emby-input" placeholder="http://192.168.1.10:8096" />
-                        <div class="fieldDescription">The address at which the <b>ffmpeg host</b> can reach this Jellyfin server: scheme, hostname or IP, and port. Leave empty when ffmpeg runs on this machine (the default <code>http://127.0.0.1</code> then works). If Jellyfin uses a Base URL, it is added automatically. Setting an address also switches the intermediate transcode to MPEG-TS (see below).</div>
-                    </div>
-
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="SequentialIntermediate" name="SequentialIntermediate" type="checkbox" is="emby-checkbox" />
-                            <span>Request the intermediate transcode as MPEG-TS</span>
-                        </label>
-                        <div class="fieldDescription">Jellyfin normally hands the plugin a fragmented MP4, whose fragment headers ffmpeg patches afterwards with seek-back writes. ffmpeg-over-ip (v5+) tunnels file writes and loses some of those patches, which truncates the download. MPEG-TS is written strictly sequentially and is unaffected. Turn this on for an ffmpeg-over-ip setup that keeps the encoder address above empty (e.g. a Unix socket on the same machine); it is implied when an address is set.</div>
+                        <div class="fieldDescription">The address at which the <b>ffmpeg host</b> can reach this Jellyfin server: scheme, hostname or IP, and port. Leave empty when ffmpeg runs on this machine (the default <code>http://127.0.0.1</code> then works). If Jellyfin uses a Base URL, it is added automatically.</div>
                     </div>
 
                     <hr class="td-div">
@@ -319,7 +311,6 @@
                     document.querySelector('#MaxCacheGb').value = config.MaxCacheBytes ? Math.round((config.MaxCacheBytes / 1073741824) * 100) / 100 : 0;
                     document.querySelector('#WorkPath').value = config.WorkPath || '';
                     document.querySelector('#EncoderServerUrl').value = config.EncoderServerUrl || '';
-                    document.querySelector('#SequentialIntermediate').checked = !!config.SequentialIntermediate;
                     tdSetPresets(config.Qualities);
                     Dashboard.hideLoadingMsg();
                 });
@@ -342,7 +333,6 @@
                     config.MaxCacheBytes = (isNaN(gb) || gb <= 0) ? 0 : Math.round(gb * 1073741824);
                     config.WorkPath = document.querySelector('#WorkPath').value;
                     config.EncoderServerUrl = (document.querySelector('#EncoderServerUrl').value || '').trim();
-                    config.SequentialIntermediate = document.querySelector('#SequentialIntermediate').checked;
                     config.Qualities = tdReadPresets();
                     ApiClient.updatePluginConfiguration(TranscodeDownloaderConfig.pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);

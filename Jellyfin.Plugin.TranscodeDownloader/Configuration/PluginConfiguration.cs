@@ -66,12 +66,4 @@ public class PluginConfiguration : BasePluginConfiguration
     /// 127.0.0.1 then points at the encoder host instead of the server. Empty = local loopback.
     /// </summary>
     public string EncoderServerUrl { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the intermediate transcode is requested from Jellyfin
-    /// as MPEG-TS instead of fragmented MP4. MPEG-TS is written strictly sequentially, which keeps
-    /// the stream intact when the encoder's file writes go through a tunnel that mishandles
-    /// seek-and-patch writes (ffmpeg-over-ip v5+). Implied when <see cref="EncoderServerUrl"/> is set.
-    /// </summary>
-    public bool SequentialIntermediate { get; set; }
 }

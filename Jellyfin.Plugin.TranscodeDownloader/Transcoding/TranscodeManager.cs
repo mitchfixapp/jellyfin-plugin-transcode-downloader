@@ -80,9 +80,6 @@ public sealed class TranscodeManager : IDisposable
     private static IReadOnlyList<QualityPreset> EffectiveQualities =>
         Config.Qualities.Count > 0 ? Config.Qualities : DefaultQualities;
 
-    private static bool UseSequentialIntermediate =>
-        Config.SequentialIntermediate || !string.IsNullOrWhiteSpace(Config.EncoderServerUrl);
-
     private string WorkDir =>
         string.IsNullOrWhiteSpace(Config.WorkPath)
             ? Path.Combine(_appPaths.CachePath, "transcode-downloader")
@@ -1037,19 +1034,12 @@ public sealed class TranscodeManager : IDisposable
         var net = _serverConfig.GetNetworkConfiguration();
         var baseUrl = (net.BaseUrl ?? string.Empty).TrimEnd('/');
         var id = itemId.ToString("N", CultureInfo.InvariantCulture);
-
-        // Jellyfin writes a progressive MP4 as fragmented MP4, and ffmpeg's muxer patches every
-        // fragment header afterwards with a seek-back write. An encoder whose file I/O is tunneled
-        // (ffmpeg-over-ip v5+) loses some of those patches, which leaves zero-sized boxes in the
-        // stream and makes the remux stop early with a clean exit. MPEG-TS is written strictly
-        // sequentially and has no such patches, so remote-encoder setups use it as the intermediate.
-        var container = UseSequentialIntermediate ? "ts" : "mp4";
         var q = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["static"] = "false",
             ["mediaSourceId"] = id,
             ["deviceId"] = "transcode-downloader-" + jobId.ToString("N", CultureInfo.InvariantCulture),
-            ["container"] = container,
+            ["container"] = "mp4",
             ["videoCodec"] = Config.VideoCodec,
             ["audioCodec"] = "aac",
             ["maxHeight"] = preset.MaxHeight.ToString(CultureInfo.InvariantCulture),
@@ -1063,11 +1053,10 @@ public sealed class TranscodeManager : IDisposable
         var query = string.Join("&", q.Select(kv => kv.Key + "=" + Uri.EscapeDataString(kv.Value)));
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0}{1}/Videos/{2}/stream.{3}?{4}",
+            "{0}{1}/Videos/{2}/stream.mp4?{3}",
             ResolveServerOrigin(net.InternalHttpPort, baseUrl),
             baseUrl,
             id,
-            container,
             query);
     }
 
@@ -1253,7 +1242,7 @@ public sealed class TranscodeManager : IDisposable
 
         error = string.Format(
             CultureInfo.InvariantCulture,
-            "The transcode stream ended early: ffmpeg received {0:0.0} of {1:0.0} minutes, so the download would be cut short. If ffmpeg runs on another machine (ffmpeg-over-ip), set the encoder address or enable 'Request the intermediate transcode as MPEG-TS' under Remote encoder in the plugin settings.",
+            "The transcode stream ended early: ffmpeg received {0:0.0} of {1:0.0} minutes, so the download would be cut short. Check the Jellyfin log for why its transcode stopped; with a remote encoder, check that its output reaches this server intact.",
             job.OutTimeSeconds / 60,
             job.DurationSeconds / 60);
         return true;
