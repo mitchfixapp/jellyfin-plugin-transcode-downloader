@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.4.8",
+        "changelog": "- **Improved**: when ffmpeg finishes but its output never reaches the Jellyfin side (a remote\n  encoder whose files are not shared with Jellyfin), the download now fails with a message that\n  names the missing file and explains what to configure, instead of a silent failure. The plugin\n  also waits a few seconds for a remote encoder's last writes to arrive before giving up. (#7)\n- **Improved**: hovering the red retry icon of a failed download now shows the reason for the\n  failure, so it can be understood without opening the Jellyfin log.\n- The settings page and README now describe what a remote ffmpeg needs to reach: this server, the\n  media files and the plugin's work folder.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.8/transcode-downloader_1.2.4.8.zip",
+        "checksum": "403054d853a7ace46bbd9b3fff515aa4",
+        "timestamp": "2026-09-21T17:17:10.0000000Z"
+      },
+      {
         "version": "1.2.4.7",
         "changelog": "- **New**: a *Server address for the encoder* setting for setups where ffmpeg runs on another\n  machine (e.g. ffmpeg-over-ip). Enter the address at which the ffmpeg host can reach Jellyfin and\n  transcoded downloads work again; leave it empty for the usual same-machine setup. (#7)",
         "targetAbi": "10.11.0.0",
