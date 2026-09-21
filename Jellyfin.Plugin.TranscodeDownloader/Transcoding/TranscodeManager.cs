@@ -748,7 +748,7 @@ public sealed class TranscodeManager : IDisposable
                             return;
                         }
 
-                        if (process.ExitCode == 0 && File.Exists(tempPath) && new FileInfo(tempPath).Length > 0)
+                        if (process.ExitCode == 0 && await WaitForOutputAsync(tempPath).ConfigureAwait(false))
                         {
                             Promote(tempPath, job);
                             job.Progress = 100;
@@ -760,6 +760,21 @@ public sealed class TranscodeManager : IDisposable
 
                             _logger.LogInformation("[TranscodeDownloader] finished {File} ({Size} bytes)", job.FileName, job.Size);
                             EnforceCacheBudget();
+                            return;
+                        }
+
+                        if (process.ExitCode == 0)
+                        {
+                            // ffmpeg reported success but nothing arrived in the work folder. That is not a
+                            // transient encode error, so a retry would only repeat the same transcode: the
+                            // output was written somewhere this server cannot see (typically a remote encoder
+                            // whose filesystem is not shared with Jellyfin). Fail with a message that says so.
+                            job.Error = string.Format(
+                                CultureInfo.InvariantCulture,
+                                "ffmpeg finished, but its output file did not appear on the Jellyfin side ({0}). When ffmpeg runs on another machine, its output must land in the plugin's work folder: ffmpeg-over-ip v5 or newer does that automatically; with an older version or another shared-storage setup, point the plugin's 'Work folder' setting at a folder both machines can reach.",
+                                tempPath);
+                            TryAdvance(job, JobState.Error);
+                            _logger.LogWarning("[TranscodeDownloader] job {Id} failed: {Error}", job.Id, job.Error);
                             return;
                         }
 
@@ -1197,6 +1212,33 @@ public sealed class TranscodeManager : IDisposable
                 _runningCount--;
             }
         }
+    }
+
+    /// <summary>
+    /// Returns true once a non-empty output file exists at <paramref name="path"/>. A remote encoder
+    /// client (ffmpeg-over-ip) can exit a moment before its last tunneled writes are visible here,
+    /// so a missing file is re-checked for a few seconds before it counts as absent.
+    /// </summary>
+    private static async Task<bool> WaitForOutputAsync(string path)
+    {
+        for (var i = 0; i < 12; i++)
+        {
+            try
+            {
+                if (File.Exists(path) && new FileInfo(path).Length > 0)
+                {
+                    return true;
+                }
+            }
+            catch (IOException)
+            {
+                // treat as not there yet
+            }
+
+            await Task.Delay(250).ConfigureAwait(false);
+        }
+
+        return false;
     }
 
     private string TempPathFor(TranscodeJob job) =>

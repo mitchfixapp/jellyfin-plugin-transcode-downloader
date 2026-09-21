@@ -102,12 +102,12 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="WorkPath">Work folder (optional)</label>
                         <input id="WorkPath" name="WorkPath" type="text" is="emby-input" />
-                        <div class="fieldDescription">Where transcodes are stored temporarily. Leave empty for the default cache folder.</div>
+                        <div class="fieldDescription">Where transcodes are stored temporarily. Leave empty for the default cache folder. With a remote ffmpeg that relies on shared storage (ffmpeg-over-ip before v5, NFS/SMB setups) this must be a folder both machines can reach, because ffmpeg writes the finished file here and Jellyfin serves it from here.</div>
                     </div>
 
                     <hr class="td-div">
                     <h3 class="td-h">Remote encoder</h3>
-                    <p class="td-sub">Only needed when ffmpeg runs on a different machine than Jellyfin (e.g. ffmpeg-over-ip).</p>
+                    <p class="td-sub">Only needed when ffmpeg runs on a different machine than Jellyfin (e.g. ffmpeg-over-ip). Besides reaching this server, the remote ffmpeg must also be able to read the original media files (for subtitles) and to write its output into the <b>Work folder</b> above. ffmpeg-over-ip v5 or newer tunnels all file access back to this machine automatically; older versions and other remote setups need shared storage for those paths.</p>
 
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="EncoderServerUrl">Server address for the encoder (optional)</label>

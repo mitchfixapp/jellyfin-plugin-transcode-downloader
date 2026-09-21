@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.4-beta.8 - 2026-09-21
+- **Improved**: when ffmpeg finishes but its output never reaches the Jellyfin side (a remote
+  encoder whose files are not shared with Jellyfin), the download now fails with a message that
+  names the missing file and explains what to configure, instead of a silent failure. The plugin
+  also waits a few seconds for a remote encoder's last writes to arrive before giving up. (#7)
+- **Improved**: hovering the red retry icon of a failed download now shows the reason for the
+  failure, so it can be understood without opening the Jellyfin log.
+- The settings page and README now describe what a remote ffmpeg needs to reach: this server, the
+  media files and the plugin's work folder.
+
 ## v1.2.4-beta.7 - 2026-09-20
 - **New**: a *Server address for the encoder* setting for setups where ffmpeg runs on another
   machine (e.g. ffmpeg-over-ip). Enter the address at which the ffmpeg host can reach Jellyfin and
