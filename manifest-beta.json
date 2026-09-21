@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.4.9",
+        "changelog": "- **Fixed**: with ffmpeg-over-ip (v5+) downloads stopped after a few minutes of video. The\n  tunnel damaged the fragmented MP4 that Jellyfin produces as the intermediate stream, so ffmpeg\n  quietly finished early. When an encoder address is set (or the new *Request the intermediate\n  transcode as MPEG-TS* option is on), the plugin now requests that stream as MPEG-TS, which is\n  unaffected, and the download is complete again. (#7)\n- **Fixed**: a download whose intermediate stream ends early is now reported as a failure\n  (\"The transcode stream ended early\") instead of being offered as a finished, cut-short file.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.4-beta.9/transcode-downloader_1.2.4.9.zip",
+        "checksum": "a8dfbac98187d68560279558195aad4d",
+        "timestamp": "2026-09-21T18:00:21.0000000Z"
+      },
+      {
         "version": "1.2.4.8",
         "changelog": "- **Improved**: when ffmpeg finishes but its output never reaches the Jellyfin side (a remote\n  encoder whose files are not shared with Jellyfin), the download now fails with a message that\n  names the missing file and explains what to configure, instead of a silent failure. The plugin\n  also waits a few seconds for a remote encoder's last writes to arrive before giving up. (#7)\n- **Improved**: hovering the red retry icon of a failed download now shows the reason for the\n  failure, so it can be understood without opening the Jellyfin log.\n- The settings page and README now describe what a remote ffmpeg needs to reach: this server, the\n  media files and the plugin's work folder.",
         "targetAbi": "10.11.0.0",
