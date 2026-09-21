@@ -1034,12 +1034,18 @@ public sealed class TranscodeManager : IDisposable
         var net = _serverConfig.GetNetworkConfiguration();
         var baseUrl = (net.BaseUrl ?? string.Empty).TrimEnd('/');
         var id = itemId.ToString("N", CultureInfo.InvariantCulture);
+
+        // The remux reads this stream while Jellyfin's ffmpeg is still writing it. Fragmented MP4
+        // writes every moof with a size placeholder that is patched afterwards, so a reader at the
+        // write frontier can catch the unpatched header whenever the writes have latency (remote
+        // encoder, network storage) and then stops early. MPEG-TS is written strictly sequentially.
+        var container = Config.SequentialIntermediate ? "ts" : "mp4";
         var q = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["static"] = "false",
             ["mediaSourceId"] = id,
             ["deviceId"] = "transcode-downloader-" + jobId.ToString("N", CultureInfo.InvariantCulture),
-            ["container"] = "mp4",
+            ["container"] = container,
             ["videoCodec"] = Config.VideoCodec,
             ["audioCodec"] = "aac",
             ["maxHeight"] = preset.MaxHeight.ToString(CultureInfo.InvariantCulture),
@@ -1053,10 +1059,11 @@ public sealed class TranscodeManager : IDisposable
         var query = string.Join("&", q.Select(kv => kv.Key + "=" + Uri.EscapeDataString(kv.Value)));
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0}{1}/Videos/{2}/stream.mp4?{3}",
+            "{0}{1}/Videos/{2}/stream.{3}?{4}",
             ResolveServerOrigin(net.InternalHttpPort, baseUrl),
             baseUrl,
             id,
+            container,
             query);
     }
 

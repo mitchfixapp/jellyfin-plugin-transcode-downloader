@@ -105,6 +105,14 @@
                         <div class="fieldDescription">Where transcodes are stored temporarily. Leave empty for the default cache folder. With a remote ffmpeg that relies on shared storage (ffmpeg-over-ip before v5, NFS/SMB setups) this must be a folder both machines can reach, because ffmpeg writes the finished file here and Jellyfin serves it from here.</div>
                     </div>
 
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="SequentialIntermediate" name="SequentialIntermediate" type="checkbox" is="emby-checkbox" />
+                            <span>Request the intermediate transcode as MPEG-TS</span>
+                        </label>
+                        <div class="fieldDescription">The plugin reads Jellyfin's transcode while ffmpeg is still writing it. As fragmented MP4 (the default before this setting existed) every fragment header is patched afterwards, and a reader can catch the unpatched header whenever the writes have latency, such as a remote encoder (ffmpeg-over-ip) or a transcode folder on network storage; the download then stops early. MPEG-TS is written strictly sequentially and avoids that. The finished download is a regular MP4 either way. On by default for new installations.</div>
+                    </div>
+
                     <hr class="td-div">
                     <h3 class="td-h">Remote encoder</h3>
                     <p class="td-sub">Only needed when ffmpeg runs on a different machine than Jellyfin (e.g. ffmpeg-over-ip). Besides reaching this server, the remote ffmpeg must also be able to read the original media files (for subtitles) and to write its output into the <b>Work folder</b> above. ffmpeg-over-ip v5 or newer tunnels all file access back to this machine automatically; older versions and other remote setups need shared storage for those paths.</p>
@@ -311,6 +319,7 @@
                     document.querySelector('#MaxCacheGb').value = config.MaxCacheBytes ? Math.round((config.MaxCacheBytes / 1073741824) * 100) / 100 : 0;
                     document.querySelector('#WorkPath').value = config.WorkPath || '';
                     document.querySelector('#EncoderServerUrl').value = config.EncoderServerUrl || '';
+                    document.querySelector('#SequentialIntermediate').checked = !!config.SequentialIntermediate;
                     tdSetPresets(config.Qualities);
                     Dashboard.hideLoadingMsg();
                 });
@@ -333,6 +342,7 @@
                     config.MaxCacheBytes = (isNaN(gb) || gb <= 0) ? 0 : Math.round(gb * 1073741824);
                     config.WorkPath = document.querySelector('#WorkPath').value;
                     config.EncoderServerUrl = (document.querySelector('#EncoderServerUrl').value || '').trim();
+                    config.SequentialIntermediate = document.querySelector('#SequentialIntermediate').checked;
                     config.Qualities = tdReadPresets();
                     ApiClient.updatePluginConfiguration(TranscodeDownloaderConfig.pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);

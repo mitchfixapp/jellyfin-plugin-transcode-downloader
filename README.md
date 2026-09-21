@@ -186,6 +186,7 @@ repository above.
 | **Delete finished files after (days)** | Retention; a scheduled task removes completed transcodes. |
 | **Max cache size (GB)** | Total cache ceiling. When exceeded, the oldest finished files are evicted first; in-progress transcodes are never removed. `0` = unlimited. |
 | **Work folder** | Where temporary transcodes are written (default: cache folder). With a remote ffmpeg on shared storage this must be a folder both machines can reach (see below). |
+| **Request the intermediate transcode as MPEG-TS** | The plugin reads Jellyfin's transcode while ffmpeg is still writing it. Fragmented MP4 patches every fragment header afterwards, and a reader can catch the unpatched header when the writes have latency (remote encoder, transcode folder on network storage), cutting the download short. MPEG-TS is written sequentially and avoids that; the download is a regular MP4 either way. On for new installations; upgraded installations keep MP4 until switched on. |
 | **Server address for the encoder** | Only for a remote ffmpeg (e.g. [ffmpeg-over-ip](https://github.com/steelbrain/ffmpeg-over-ip)): the `http(s)://host:port` at which the ffmpeg host can reach Jellyfin. Empty = `127.0.0.1`, which is right when ffmpeg runs next to Jellyfin. |
 | **Quality presets (JSON)** | `label`, `maxHeight`, `minSourceWidth` (anti-upscale gate), `videoBitrate` (bits/sec). |
 
@@ -204,10 +205,12 @@ repository above.
   shared storage, the work folder (and the media folders, which ffmpeg reads for subtitle tracks)
   must be reachable from the ffmpeg host under the mapped path: set **Work folder** to a folder on
   that share. The failure reason in the UI and the log names the exact file that was expected.
-- **ffmpeg-over-ip v5: the download fails with "The transcode stream ended early"** → the tunnel
-  damages the fragmented MP4 that Jellyfin produces as the intermediate stream (a fragment header
-  keeps a size of zero), so ffmpeg stops a few minutes in. That is a bug in ffmpeg-over-ip, not
-  something the plugin can repair; the plugin only refuses to serve the cut-short file.
+- **Remote encoder (ffmpeg-over-ip v5) or transcode folder on network storage: the download fails
+  with "The transcode stream ended early"** → turn on **Request the intermediate transcode as
+  MPEG-TS** (on by default for new installations). Jellyfin serves its progressive transcode while
+  ffmpeg is still writing it, and with fragmented MP4 the reader can catch a fragment header
+  before ffmpeg has patched in its size whenever the writes have latency; MPEG-TS has no such
+  patches. The plugin refuses to serve a cut-short file rather than deliver a truncated download.
 - **Using HTTPS via a reverse proxy?** Everything is same-origin, so it works — just make
   sure the plugin endpoints under `/TranscodeDownloader` aren't blocked by the proxy.
 

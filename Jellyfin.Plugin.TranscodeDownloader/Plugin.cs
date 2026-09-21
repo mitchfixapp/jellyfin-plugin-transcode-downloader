@@ -19,6 +19,9 @@ namespace Jellyfin.Plugin.TranscodeDownloader;
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
     private const string PluginName = "Transcode Downloader";
+
+    /// <summary>The configuration schema version written by this build (see <see cref="MigrateConfiguration"/>).</summary>
+    private const int CurrentConfigVersion = 1;
     private readonly IApplicationPaths _applicationPaths;
     private readonly ILogger<Plugin> _logger;
 
@@ -34,6 +37,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         Instance = this;
         _applicationPaths = applicationPaths;
         _logger = logger;
+        MigrateConfiguration();
     }
 
     /// <inheritdoc />
@@ -93,6 +97,33 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         UpdateIndexHtml(false);
         base.OnUninstalling();
+    }
+
+    /// <summary>
+    /// Brings a settings file written by an older version up to date. A missing field takes the
+    /// property's default when the XML is loaded, which is also what a brand-new installation gets,
+    /// so defaults that should only apply to new installations are decided here: the settings file
+    /// existing before the first load means an upgrade, and upgraded installations keep the behaviour
+    /// they had.
+    /// </summary>
+    private void MigrateConfiguration()
+    {
+        var upgraded = File.Exists(ConfigurationFilePath);
+        var config = Configuration;
+        if (config.ConfigVersion >= CurrentConfigVersion)
+        {
+            return;
+        }
+
+        if (upgraded)
+        {
+            // v1: the MPEG-TS intermediate is on for new installations only.
+            config.SequentialIntermediate = false;
+        }
+
+        config.ConfigVersion = CurrentConfigVersion;
+        SaveConfiguration();
+        _logger.LogInformation("[TranscodeDownloader] settings migrated to version {Version} ({Kind})", CurrentConfigVersion, upgraded ? "upgrade" : "new installation");
     }
 
     private void UpdateIndexHtml(bool inject)

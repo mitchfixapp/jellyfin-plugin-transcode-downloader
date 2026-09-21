@@ -66,4 +66,20 @@ public class PluginConfiguration : BasePluginConfiguration
     /// 127.0.0.1 then points at the encoder host instead of the server. Empty = local loopback.
     /// </summary>
     public string EncoderServerUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the intermediate transcode is requested from Jellyfin
+    /// as MPEG-TS instead of fragmented MP4. The plugin reads that stream while ffmpeg is still
+    /// writing it; MPEG-TS is written strictly sequentially, whereas fragmented MP4 patches every
+    /// fragment header afterwards and a reader can catch the unpatched header when the writes have
+    /// any latency (remote encoders, network storage). On for new installations; installations
+    /// upgraded from a version without this setting keep MP4 until it is switched on.
+    /// </summary>
+    public bool SequentialIntermediate { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the configuration schema version, used to migrate settings files written by
+    /// older versions. 0 = written before this field existed.
+    /// </summary>
+    public int ConfigVersion { get; set; }
 }
