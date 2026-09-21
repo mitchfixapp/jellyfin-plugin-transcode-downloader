@@ -5,12 +5,11 @@ The CI reads the section for each released version (`## vX.Y.Z`) into the releas
 and the plugin manifest.
 
 ## v1.2.4-beta.9 - unreleased
-- **New**: *Request the intermediate transcode as MPEG-TS* setting. With a remote encoder
-  (ffmpeg-over-ip) or a transcode folder on network storage, downloads could stop after a few
-  minutes because the reader caught a fragment header of the intermediate MP4 before ffmpeg had
-  finished it; MPEG-TS is written sequentially and is not affected. On by default for new
-  installations; existing installations keep their current behaviour until the setting is
-  switched on. The finished download is a regular MP4 either way. (#7)
+- **New**: *Request the intermediate transcode as MPEG-TS* setting under *Remote encoder*, for
+  ffmpeg-over-ip v5 and newer. Through its file tunnel a download could stop after a few minutes
+  because the plugin caught a fragment header of the intermediate MP4 before ffmpeg had finished
+  it; MPEG-TS is written sequentially and is not affected. Off by default; the finished download
+  is a regular MP4 either way. Background in `docs/remote-encoder.md`. (#7)
 - **Fixed**: a download whose intermediate stream ends early is now reported as a failure
   ("The transcode stream ended early") instead of being offered as a finished, cut-short file.
 

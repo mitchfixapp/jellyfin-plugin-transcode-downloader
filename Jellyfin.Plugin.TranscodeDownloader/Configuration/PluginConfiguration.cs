@@ -71,15 +71,8 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether the intermediate transcode is requested from Jellyfin
     /// as MPEG-TS instead of fragmented MP4. The plugin reads that stream while ffmpeg is still
     /// writing it; MPEG-TS is written strictly sequentially, whereas fragmented MP4 patches every
-    /// fragment header afterwards and a reader can catch the unpatched header when the writes have
-    /// any latency (remote encoders, network storage). On for new installations; installations
-    /// upgraded from a version without this setting keep MP4 until it is switched on.
+    /// fragment header afterwards and a reader can catch the unpatched header when the encoder's
+    /// writes have latency (ffmpeg-over-ip's file tunnel). See docs/remote-encoder.md. Off by default.
     /// </summary>
-    public bool SequentialIntermediate { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets the configuration schema version, used to migrate settings files written by
-    /// older versions. 0 = written before this field existed.
-    /// </summary>
-    public int ConfigVersion { get; set; }
+    public bool SequentialIntermediate { get; set; }
 }
