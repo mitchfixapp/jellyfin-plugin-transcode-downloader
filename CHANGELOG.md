@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
-## v1.2.4-beta.9 - unreleased
+## v1.2.4-beta.9 - 2026-09-21
 - **New**: *Request the intermediate transcode as MPEG-TS* setting under *Remote encoder*, for
   ffmpeg-over-ip v5 and newer. Through its file tunnel a download could stop after a few minutes
   because the plugin caught a fragment header of the intermediate MP4 before ffmpeg had finished
