@@ -767,15 +767,20 @@
       refreshDock();
     }
 
-    function onFail(rec) {
+    function onFail(rec, error) {
       rec.done = false;
       rec.failed = true;
+      // The server's reason (ffmpeg's last lines, a missing output file, ...) is shown as the
+      // hover text so a failure can be understood without digging through the Jellyfin log.
+      var reason = error ? "\n" + error : "";
       // A job restored without its item id cannot be re-submitted, so it just reads as failed
       // instead of offering a retry that would go nowhere.
       if (rec.item) {
-        setStatus(rec.row, statusEl(ICON_RETRY, "Transcode failed — retry", "#ff6b6b", function () { startOne(rec); }));
+        setStatus(rec.row, statusEl(ICON_RETRY, "Transcode failed — retry" + reason, "#ff6b6b", function () { startOne(rec); }));
       } else {
-        setStatus(rec.row, statusText("failed"));
+        var failedEl = statusText("failed");
+        failedEl.title = "Transcode failed" + reason;
+        setStatus(rec.row, failedEl);
       }
 
       updateAll();
@@ -805,7 +810,7 @@
               updateAll();
               deliver(url, rec.file);
             }
-            else if (s.state === "error") { clearInterval(rec.timer); rec.timer = null; onFail(rec); }
+            else if (s.state === "error") { clearInterval(rec.timer); rec.timer = null; onFail(rec, s.error); }
             else if (s.state === "cancelled") { clearInterval(rec.timer); rec.timer = null; }
           })
           .catch(function () { /* keep polling */ });

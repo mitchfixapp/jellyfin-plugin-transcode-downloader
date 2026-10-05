@@ -748,8 +748,18 @@ public sealed class TranscodeManager : IDisposable
                             return;
                         }
 
-                        if (process.ExitCode == 0 && File.Exists(tempPath) && new FileInfo(tempPath).Length > 0)
+                        if (process.ExitCode == 0 && await WaitForOutputAsync(tempPath).ConfigureAwait(false))
                         {
+                            if (IsTruncated(job, tempPath, out var truncatedError))
+                            {
+                                // Not retried: the same intermediate stream would end at the same place.
+                                TryDelete(tempPath);
+                                job.Error = truncatedError;
+                                TryAdvance(job, JobState.Error);
+                                _logger.LogWarning("[TranscodeDownloader] job {Id} failed: {Error}", job.Id, truncatedError);
+                                return;
+                            }
+
                             Promote(tempPath, job);
                             job.Progress = 100;
                             if (!TryAdvance(job, JobState.Done))
@@ -760,6 +770,21 @@ public sealed class TranscodeManager : IDisposable
 
                             _logger.LogInformation("[TranscodeDownloader] finished {File} ({Size} bytes)", job.FileName, job.Size);
                             EnforceCacheBudget();
+                            return;
+                        }
+
+                        if (process.ExitCode == 0)
+                        {
+                            // ffmpeg reported success but nothing arrived in the work folder. That is not a
+                            // transient encode error, so a retry would only repeat the same transcode: the
+                            // output was written somewhere this server cannot see (typically a remote encoder
+                            // whose filesystem is not shared with Jellyfin). Fail with a message that says so.
+                            job.Error = string.Format(
+                                CultureInfo.InvariantCulture,
+                                "ffmpeg finished, but its output file did not appear on the Jellyfin side ({0}). When ffmpeg runs on another machine, its output must land in the plugin's work folder: ffmpeg-over-ip v5 or newer does that automatically; with an older version or another shared-storage setup, point the plugin's 'Work folder' setting at a folder both machines can reach.",
+                                tempPath);
+                            TryAdvance(job, JobState.Error);
+                            _logger.LogWarning("[TranscodeDownloader] job {Id} failed: {Error}", job.Id, job.Error);
                             return;
                         }
 
@@ -999,6 +1024,7 @@ public sealed class TranscodeManager : IDisposable
             && double.TryParse(m.Groups[3].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var s))
         {
             var secs = (h * 3600) + (min * 60) + s;
+            job.OutTimeSeconds = secs;
             job.Progress = Math.Min(99, secs / job.DurationSeconds * 100);
         }
     }
@@ -1008,12 +1034,18 @@ public sealed class TranscodeManager : IDisposable
         var net = _serverConfig.GetNetworkConfiguration();
         var baseUrl = (net.BaseUrl ?? string.Empty).TrimEnd('/');
         var id = itemId.ToString("N", CultureInfo.InvariantCulture);
+
+        // The remux reads this stream while Jellyfin's ffmpeg is still writing it. Fragmented MP4
+        // writes every moof with a size placeholder that is patched afterwards, so a reader at the
+        // write frontier can catch the unpatched header whenever the writes have latency (remote
+        // encoder, network storage) and then stops early. MPEG-TS is written strictly sequentially.
+        var container = Config.SequentialIntermediate ? "ts" : "mp4";
         var q = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["static"] = "false",
             ["mediaSourceId"] = id,
             ["deviceId"] = "transcode-downloader-" + jobId.ToString("N", CultureInfo.InvariantCulture),
-            ["container"] = "mp4",
+            ["container"] = container,
             ["videoCodec"] = Config.VideoCodec,
             ["audioCodec"] = "aac",
             ["maxHeight"] = preset.MaxHeight.ToString(CultureInfo.InvariantCulture),
@@ -1027,11 +1059,40 @@ public sealed class TranscodeManager : IDisposable
         var query = string.Join("&", q.Select(kv => kv.Key + "=" + Uri.EscapeDataString(kv.Value)));
         return string.Format(
             CultureInfo.InvariantCulture,
-            "http://127.0.0.1:{0}{1}/Videos/{2}/stream.mp4?{3}",
-            net.InternalHttpPort,
+            "{0}{1}/Videos/{2}/stream.{3}?{4}",
+            ResolveServerOrigin(net.InternalHttpPort, baseUrl),
             baseUrl,
             id,
+            container,
             query);
+    }
+
+    /// <summary>
+    /// Returns the origin (scheme://host:port) ffmpeg should use to reach this server. By default
+    /// that is the local loopback on the internal HTTP port, which is fine when ffmpeg runs next to
+    /// Jellyfin. When the admin configured an encoder-facing address (ffmpeg on another machine via
+    /// ffmpeg-over-ip or similar), that address is used instead. A missing scheme defaults to http,
+    /// and a trailing copy of Jellyfin's Base URL path is dropped so it is not appended twice.
+    /// </summary>
+    private string ResolveServerOrigin(int internalHttpPort, string baseUrl)
+    {
+        var configured = (Config.EncoderServerUrl ?? string.Empty).Trim().TrimEnd('/');
+        if (configured.Length == 0)
+        {
+            return string.Format(CultureInfo.InvariantCulture, "http://127.0.0.1:{0}", internalHttpPort);
+        }
+
+        if (!configured.Contains("://", StringComparison.Ordinal))
+        {
+            configured = "http://" + configured;
+        }
+
+        if (baseUrl.Length > 0 && configured.EndsWith(baseUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            configured = configured[..^baseUrl.Length].TrimEnd('/');
+        }
+
+        return configured;
     }
 
     private static QualityPreset ResolvePreset(int requestedHeight, int srcWidth)
@@ -1169,6 +1230,169 @@ public sealed class TranscodeManager : IDisposable
                 _runningCount--;
             }
         }
+    }
+
+    /// <summary>
+    /// Detects a remux that exited cleanly but produced a file well short of the item's runtime:
+    /// the intermediate stream ended early (Jellyfin stopped its transcode, or a remote encoder's
+    /// output was damaged in transit) and the file would play but stop short. The duration is read
+    /// from the file's own MP4 header; ffmpeg's progress output is not used for this because its
+    /// out_time follows the last output stream, which for a subtitle track is the last cue rather
+    /// than the end of the video. Files whose header cannot be read, and items without a known
+    /// runtime, are not judged.
+    /// </summary>
+    private static bool IsTruncated(TranscodeJob job, string path, out string error)
+    {
+        error = string.Empty;
+        if (job.DurationSeconds <= 0)
+        {
+            return false;
+        }
+
+        var actual = ReadMp4DurationSeconds(path);
+        if (actual is null || actual.Value <= 0 || actual.Value >= job.DurationSeconds * 0.9)
+        {
+            return false;
+        }
+
+        error = string.Format(
+            CultureInfo.InvariantCulture,
+            "The transcode stream ended early: the finished file holds {0:0.0} of {1:0.0} minutes, so the download would be cut short. Check the Jellyfin log for why its transcode stopped; with a remote encoder, check that its output reaches this server intact.",
+            actual.Value / 60,
+            job.DurationSeconds / 60);
+        return true;
+    }
+
+    /// <summary>
+    /// Reads the presentation duration from an MP4's movie header (moov/mvhd). Top-level boxes are
+    /// walked from the start, skipping over mdat by its size, so this is cheap for both faststart
+    /// and non-faststart files. Returns null when no readable header is found.
+    /// </summary>
+    private static double? ReadMp4DurationSeconds(string path)
+    {
+        try
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var header = new byte[16];
+            long pos = 0;
+            for (var i = 0; i < 64 && pos + 8 <= fs.Length; i++)
+            {
+                fs.Seek(pos, SeekOrigin.Begin);
+                if (fs.Read(header, 0, 8) != 8)
+                {
+                    return null;
+                }
+
+                long size = ReadUInt32(header, 0);
+                var type = Encoding.ASCII.GetString(header, 4, 4);
+                var headerLength = 8;
+                if (size == 1)
+                {
+                    if (fs.Read(header, 8, 8) != 8)
+                    {
+                        return null;
+                    }
+
+                    size = (long)ReadUInt64(header, 8);
+                    headerLength = 16;
+                }
+                else if (size == 0)
+                {
+                    size = fs.Length - pos;
+                }
+
+                if (size < headerLength)
+                {
+                    return null;
+                }
+
+                if (type == "moov")
+                {
+                    return ReadMvhdDuration(fs, pos + headerLength, pos + size);
+                }
+
+                pos += size;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // unreadable: not judged
+        }
+
+        return null;
+    }
+
+    private static double? ReadMvhdDuration(FileStream fs, long start, long end)
+    {
+        var buf = new byte[32];
+        var pos = start;
+        while (pos + 8 <= end)
+        {
+            fs.Seek(pos, SeekOrigin.Begin);
+            if (fs.Read(buf, 0, 8) != 8)
+            {
+                return null;
+            }
+
+            long size = ReadUInt32(buf, 0);
+            var type = Encoding.ASCII.GetString(buf, 4, 4);
+            if (size < 8)
+            {
+                return null;
+            }
+
+            if (type == "mvhd")
+            {
+                // version(1) flags(3) then, for version 0: creation(4) modification(4) timescale(4)
+                // duration(4); for version 1: creation(8) modification(8) timescale(4) duration(8).
+                if (fs.Read(buf, 0, 32) < 24)
+                {
+                    return null;
+                }
+
+                var version = buf[0];
+                double timescale = version == 1 ? ReadUInt32(buf, 20) : ReadUInt32(buf, 12);
+                double duration = version == 1 ? ReadUInt64(buf, 24) : ReadUInt32(buf, 16);
+                return timescale > 0 ? duration / timescale : null;
+            }
+
+            pos += size;
+        }
+
+        return null;
+    }
+
+    private static uint ReadUInt32(byte[] b, int offset) =>
+        ((uint)b[offset] << 24) | ((uint)b[offset + 1] << 16) | ((uint)b[offset + 2] << 8) | b[offset + 3];
+
+    private static ulong ReadUInt64(byte[] b, int offset) =>
+        ((ulong)ReadUInt32(b, offset) << 32) | ReadUInt32(b, offset + 4);
+
+    /// <summary>
+    /// Returns true once a non-empty output file exists at <paramref name="path"/>. A remote encoder
+    /// client (ffmpeg-over-ip) can exit a moment before its last tunneled writes are visible here,
+    /// so a missing file is re-checked for a few seconds before it counts as absent.
+    /// </summary>
+    private static async Task<bool> WaitForOutputAsync(string path)
+    {
+        for (var i = 0; i < 12; i++)
+        {
+            try
+            {
+                if (File.Exists(path) && new FileInfo(path).Length > 0)
+                {
+                    return true;
+                }
+            }
+            catch (IOException)
+            {
+                // treat as not there yet
+            }
+
+            await Task.Delay(250).ConfigureAwait(false);
+        }
+
+        return false;
     }
 
     private string TempPathFor(TranscodeJob job) =>
