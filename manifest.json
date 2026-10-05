@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/main/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.5.0",
+        "changelog": "- **New**: support for a remote encoder such as ffmpeg-over-ip. A *Server address for the encoder*\n  setting under *Remote encoder* lets ffmpeg on another machine reach Jellyfin, and a *Request the\n  intermediate transcode as MPEG-TS* setting (for ffmpeg-over-ip v5 and newer) keeps downloads from\n  stopping early. Background and setup in `docs/remote-encoder.md`. (#7)\n- **Improved**: when ffmpeg finishes but its output never reaches the Jellyfin side, the download\n  now fails with a message that names the missing file and explains what to configure.\n- **Improved**: hovering the red retry icon of a failed download now shows the reason for the\n  failure.\n- **Fixed**: a download whose intermediate stream ends early is now reported as a failure instead\n  of being offered as a finished, cut-short file.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.5/transcode-downloader_1.2.5.0.zip",
+        "checksum": "015d2b35284632a6c2399a99da077b75",
+        "timestamp": "2026-10-05T18:23:40.0000000Z"
+      },
+      {
         "version": "1.2.4.0",
         "changelog": "- **Jellyfin 12 support.** The plugin now works on Jellyfin 12: the **Download** button and the\n  quality picker are back, downloads and \"Download all\" complete normally, and the icon for a\n  minimized download takes its place among the icons in Jellyfin 12's new header, styled like the\n  others. Jellyfin 10.11 remains fully supported with the same release.",
         "targetAbi": "10.11.0.0",
