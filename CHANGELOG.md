@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.5 - 2026-10-05
+- **New**: support for a remote encoder such as ffmpeg-over-ip. A *Server address for the encoder*
+  setting under *Remote encoder* lets ffmpeg on another machine reach Jellyfin, and a *Request the
+  intermediate transcode as MPEG-TS* setting (for ffmpeg-over-ip v5 and newer) keeps downloads from
+  stopping early. Background and setup in `docs/remote-encoder.md`. (#7)
+- **Improved**: when ffmpeg finishes but its output never reaches the Jellyfin side, the download
+  now fails with a message that names the missing file and explains what to configure.
+- **Improved**: hovering the red retry icon of a failed download now shows the reason for the
+  failure.
+- **Fixed**: a download whose intermediate stream ends early is now reported as a failure instead
+  of being offered as a finished, cut-short file.
+
 ## v1.2.4-beta.9 - 2026-09-21
 - **New**: *Request the intermediate transcode as MPEG-TS* setting under *Remote encoder*, for
   ffmpeg-over-ip v5 and newer. Through its file tunnel a download could stop after a few minutes
