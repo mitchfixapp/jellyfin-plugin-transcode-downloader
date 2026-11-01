@@ -222,6 +222,7 @@
   }
 
   var ICON_DOWNLOAD = "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
+  var ICON_WARNING = "M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z";   // Material "warning"
   var ICON_RETRY = "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z";
 
   function isNativeApp() {
@@ -820,16 +821,19 @@
               finished.push({ url: url, filename: rec.file });
               var dl = statusEl(ICON_DOWNLOAD, "Download", ACCENT, function () { triggerDownload(url, rec.file); });
               if (s.warning) {
-                // The file is ready but not quite as asked (e.g. subtitles left out): say so next to
-                // the icon, with the server's explanation as hover text on both.
-                var note = document.createElement("span");
-                note.textContent = "no subtitles";
-                note.title = s.warning;
-                note.style.cssText = "flex:none;display:inline-flex;align-items:center;gap:.4em;color:#f0ad4e;font-size:.85em;";
+                // The file is ready but not quite as asked (e.g. subtitles left out): an amber warning
+                // icon next to the download icon, with the server's explanation as hover text on both.
+                var wrap = document.createElement("span");
+                wrap.style.cssText = "flex:none;display:inline-flex;align-items:center;gap:.3em;min-width:4.5em;justify-content:flex-end;";
+                var warn = document.createElement("span");
+                warn.title = s.warning;
+                warn.style.cssText = "display:inline-flex;color:#f0ad4e;cursor:help;";
+                warn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="' + ICON_WARNING + '"/></svg>';
                 dl.title = "Download — " + s.warning;
                 dl.style.minWidth = "0";
-                note.appendChild(dl);
-                dl = note;
+                wrap.appendChild(warn);
+                wrap.appendChild(dl);
+                dl = wrap;
               }
               setStatus(rec.row, dl);
               updateAll();

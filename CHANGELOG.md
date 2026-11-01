@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.6-beta.3 - 2026-11-01
+- **Improved**: a finished download whose subtitle tracks had to be left out now shows a warning
+  icon next to its download icon (hover for the reason) instead of a text label.
+
 ## v1.2.6-beta.2 - 2026-11-01
 - **Fixed**: a download no longer fails outright when the source carries a subtitle track that
   cannot be stored in an MP4 (a DVB recording with teletext, for example). The transcode is

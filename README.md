@@ -182,7 +182,7 @@ repository above.
 |---|---|
 | **Video codec** | `h264` (most compatible) or `hevc` (smaller). |
 | **Audio bitrate / channels** | Output audio; 2 channels = stereo downmix for phones. |
-| **Include subtitle tracks** | Mux the source's text subtitles (embedded and sidecar `.srt`) into the download. If ffmpeg cannot fit them into the MP4, the download is retried without them and marked *no subtitles*. |
+| **Include subtitle tracks** | Mux the source's text subtitles (embedded and sidecar `.srt`) into the download. If ffmpeg cannot fit them into the MP4, the download is retried without them and gets a warning icon. |
 | **Skip these subtitle codecs** | Comma-separated codec names as Jellyfin shows them in an item's media info (e.g. `DVBTXT` for DVB teletext). Those tracks are left out from the start. |
 | **Offer "Original"** | Show the direct, non-transcoded download option. |
 | **Max concurrent transcodes** | How many run at once (takes effect after a restart). |
