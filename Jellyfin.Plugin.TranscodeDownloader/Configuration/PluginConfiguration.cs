@@ -23,6 +23,16 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets the maximum number of output audio channels (2 = stereo downmix).</summary>
     public int MaxAudioChannels { get; set; } = 2;
 
+    /// <summary>Gets or sets a value indicating whether the source's text subtitle tracks are muxed into the download.</summary>
+    public bool IncludeSubtitles { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the subtitle codecs that are left out of downloads, as a comma-separated list of
+    /// codec names the way Jellyfin reports them in an item's media info (e.g. "DVBTXT" for DVB
+    /// teletext). Case-insensitive. Empty = no codec is skipped.
+    /// </summary>
+    public string SkippedSubtitleCodecs { get; set; } = string.Empty;
+
     /// <summary>Gets or sets a value indicating whether to offer an "Original" (direct, no transcode) download.</summary>
     public bool ShowOriginal { get; set; } = true;
 

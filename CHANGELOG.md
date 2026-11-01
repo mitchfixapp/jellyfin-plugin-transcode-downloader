@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.6-beta.2 - 2026-11-01
+- **Fixed**: a download no longer fails outright when the source carries a subtitle track that
+  cannot be stored in an MP4 (a DVB recording with teletext, for example). The transcode is
+  retried without the subtitle tracks and the finished download is marked *no subtitles*, with
+  the reason as hover text. (#8)
+- **New**: *Subtitles* settings — turn subtitle muxing off altogether, or list subtitle codecs
+  (as Jellyfin shows them in an item's media info, e.g. `DVBTXT`) that are always left out, so a
+  known-bad format costs no retry. (#8)
+
 ## v1.2.6-beta.1 - 2026-11-01
 - **Fixed**: on tablets and phones the page could no longer be scrolled after picking a download
   from an item's "⋮" menu — whether the quality picker or the *Download all* dialog was then

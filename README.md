@@ -72,7 +72,9 @@ ready-to-play **MP4**.
   progress badge in Jellyfin's header; click it to come back. Reloading the page doesn't lose
   them either: running and finished downloads are picked back up.
 - 💬 **Subtitles included** — text subtitle tracks (embedded and external `.srt`) are muxed
-  into the download as selectable soft tracks, so you can pick them in your local player.
+  into the download as selectable soft tracks, so you can pick them in your local player. A
+  track that cannot go into an MP4 costs the download its subtitles, not the whole file, and
+  known-bad codecs can be skipped from the settings.
 - 🚫 **No upscaling** — qualities above the source resolution are hidden automatically.
 - ⏳ **Live progress + cancel** (cancelling stops ffmpeg immediately and frees the slot).
 - ♻️ **Auto-retry** on a transient server transcode hiccup, so big batches don't lose an episode.
@@ -180,6 +182,8 @@ repository above.
 |---|---|
 | **Video codec** | `h264` (most compatible) or `hevc` (smaller). |
 | **Audio bitrate / channels** | Output audio; 2 channels = stereo downmix for phones. |
+| **Include subtitle tracks** | Mux the source's text subtitles (embedded and sidecar `.srt`) into the download. If ffmpeg cannot fit them into the MP4, the download is retried without them and marked *no subtitles*. |
+| **Skip these subtitle codecs** | Comma-separated codec names as Jellyfin shows them in an item's media info (e.g. `DVBTXT` for DVB teletext). Those tracks are left out from the start. |
 | **Offer "Original"** | Show the direct, non-transcoded download option. |
 | **Max concurrent transcodes** | How many run at once (takes effect after a restart). |
 | **Orphan timeout** | Auto-cancel a transcode whose dialog stopped polling (closed/abandoned). |

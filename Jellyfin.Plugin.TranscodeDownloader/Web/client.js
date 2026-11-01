@@ -818,7 +818,20 @@
               clearInterval(rec.timer); rec.timer = null; rec.done = true; rec.progress = 100;
               rec.file = s.filename || rec.file;
               finished.push({ url: url, filename: rec.file });
-              setStatus(rec.row, statusEl(ICON_DOWNLOAD, "Download", ACCENT, function () { triggerDownload(url, rec.file); }));
+              var dl = statusEl(ICON_DOWNLOAD, "Download", ACCENT, function () { triggerDownload(url, rec.file); });
+              if (s.warning) {
+                // The file is ready but not quite as asked (e.g. subtitles left out): say so next to
+                // the icon, with the server's explanation as hover text on both.
+                var note = document.createElement("span");
+                note.textContent = "no subtitles";
+                note.title = s.warning;
+                note.style.cssText = "flex:none;display:inline-flex;align-items:center;gap:.4em;color:#f0ad4e;font-size:.85em;";
+                dl.title = "Download — " + s.warning;
+                dl.style.minWidth = "0";
+                note.appendChild(dl);
+                dl = note;
+              }
+              setStatus(rec.row, dl);
               updateAll();
               deliver(url, rec.file);
             }
