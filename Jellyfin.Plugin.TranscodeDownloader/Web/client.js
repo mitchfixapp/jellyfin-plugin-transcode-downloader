@@ -68,14 +68,24 @@
   function closeSheet(fromEl) {
     // Jellyfin's action sheet is a div-based dialog (.dialog.actionSheet.opened) inside a
     // .dialogContainer, with a separate .dialogBackdrop. It is NOT a native <dialog> and it
-    // ignores synthetic Escape, backdrop clicks and history.back(). Removing the container and
-    // backdrop from the DOM is the reliable way to dismiss it (verified on Jellyfin 10.11).
+    // ignores synthetic Escape, backdrop clicks and history.back(). Its dialogHelper does all of
+    // its own teardown — the backdrop, the history entry it pushed, and on touch devices the
+    // body.noScroll lock — in a listener for a private "_close" event on the dialog, so firing
+    // that event (after the "hide" class, as dialogHelper.close does) closes the sheet the way
+    // Jellyfin itself does (dialogHelper.js in 10.11 and 12). Pulling the elements out of the DOM
+    // by hand, the previous approach, skipped that teardown and left tablets and phones unable
+    // to scroll (#9); it remains the fallback in case the event is not handled.
     var dlg = (fromEl && fromEl.closest) ? fromEl.closest("dialog, .dialog, .actionSheet") : null;
     if (!dlg) { dlg = document.querySelector(".actionSheet.opened") || document.querySelector(".dialog.opened"); }
     if (!dlg) { return; }
     if (dlg.tagName === "DIALOG" && typeof dlg.close === "function") {
       try { dlg.close(); } catch (e) { /* noop */ }
     }
+    try {
+      dlg.classList.add("hide");
+      dlg.dispatchEvent(new CustomEvent("_close", { bubbles: false, cancelable: false }));
+    } catch (e) { /* noop */ }
+    if (!document.body.contains(dlg)) { return; }   // Jellyfin tore it down
     try { dlg.classList.remove("opened"); } catch (e) { /* noop */ }
     var container = dlg.closest ? dlg.closest(".dialogContainer") : null;
     var toRemove = container || dlg;
@@ -84,6 +94,8 @@
     for (var i = 0; i < bds.length; i++) {
       if (bds[i].parentNode) { try { bds[i].parentNode.removeChild(bds[i]); } catch (e) { /* noop */ } }
     }
+    // The sheet was the dialog holding the scroll lock; release it unless another dialog is open.
+    if (!document.querySelector(".dialog.opened")) { document.body.classList.remove("noScroll"); }
   }
 
   // One delegated, capture-phase click listener handles every entry point: the detail-page toolbar

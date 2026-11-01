@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 The CI reads the section for each released version (`## vX.Y.Z`) into the release notes
 and the plugin manifest.
 
+## v1.2.6-beta.1 - 2026-11-01
+- **Fixed**: on tablets and phones the page could no longer be scrolled after picking a download
+  from an item's "⋮" menu — whether the quality picker or the *Download all* dialog was then
+  cancelled or confirmed — until the page was reloaded. (#9)
+
 ## v1.2.5 - 2026-10-05
 - **New**: support for a remote encoder such as ffmpeg-over-ip. A *Server address for the encoder*
   setting under *Remote encoder* lets ffmpeg on another machine reach Jellyfin, and a *Request the
