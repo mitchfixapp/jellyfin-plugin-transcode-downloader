@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/mitchfixapp/jellyfin-plugin-transcode-downloader/develop/logo/icon.png",
     "versions": [
       {
+        "version": "1.2.6.2",
+        "changelog": "- **Fixed**: a download no longer fails outright when the source carries a subtitle track that\n  cannot be stored in an MP4 (a DVB recording with teletext, for example). The transcode is\n  retried without the subtitle tracks and the finished download is marked *no subtitles*, with\n  the reason as hover text. (#8)\n- **New**: *Subtitles* settings — turn subtitle muxing off altogether, or list subtitle codecs\n  (as Jellyfin shows them in an item's media info, e.g. `DVBTXT`) that are always left out, so a\n  known-bad format costs no retry. (#8)",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/mitchfixapp/jellyfin-plugin-transcode-downloader/releases/download/v1.2.6-beta.2/transcode-downloader_1.2.6.2.zip",
+        "checksum": "6366c47839886ec2e29df3298c7ffcd1",
+        "timestamp": "2026-11-01T16:39:33.0000000Z"
+      },
+      {
         "version": "1.2.6.1",
         "changelog": "- **Fixed**: on tablets and phones the page could no longer be scrolled after picking a download\n  from an item's \"⋮\" menu — whether the quality picker or the *Download all* dialog was then\n  cancelled or confirmed — until the page was reloaded. (#9)",
         "targetAbi": "10.11.0.0",
