@@ -37,6 +37,8 @@ public sealed class TranscodeManager : IDisposable
         new() { Label = "4K", MaxHeight = 2160, MinSourceWidth = 3456, VideoBitrate = 16_000_000 }
     };
 
+    private static readonly char[] CodecListSeparators = { ',', ';', ' ' };
+
     private readonly ILogger<TranscodeManager> _logger;
     private readonly ILibraryManager _libraryManager;
     private readonly IMediaEncoder _mediaEncoder;
@@ -679,12 +681,28 @@ public sealed class TranscodeManager : IDisposable
                 }
 
                 var url = BuildStreamUrl(job.ItemId, preset, token, job.Id);
+                var video = _libraryManager.GetItemById(job.ItemId) as Video;
+                var subtitles = SelectSubtitles(video);
 
                 // Jellyfin's internal transcode stream occasionally returns a transient 5XX when several
-                // transcodes start at once (e.g. "Download all"); retry once before giving up.
-                const int maxAttempts = 2;
+                // transcodes start at once (e.g. "Download all"); retry once before giving up. When the
+                // command carries subtitle tracks there is one more, final attempt without them: a
+                // subtitle track ffmpeg cannot turn into mov_text (the plugin does not know which
+                // formats those are, and need not) then costs the download its subtitles rather than
+                // the whole file.
+                var maxAttempts = subtitles.Count > 0 ? 3 : 2;
                 for (var attempt = 1; attempt <= maxAttempts; attempt++)
                 {
+                    var withSubtitles = subtitles.Count > 0 && attempt < maxAttempts;
+                    if (subtitles.Count > 0 && !withSubtitles)
+                    {
+                        job.Warning = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "Subtitles were left out: the transcode failed twice with the subtitle tracks ({0}) included and was retried without them. To leave out only a format that cannot go into an MP4, list its codec under Subtitles in the plugin settings.",
+                            string.Join(", ", subtitles.Select(s => string.IsNullOrEmpty(s.Codec) ? "unknown" : s.Codec).Distinct(StringComparer.OrdinalIgnoreCase)));
+                        _logger.LogWarning("[TranscodeDownloader] job {Id}: {Warning}", job.Id, job.Warning);
+                    }
+
                     var stderr = new StringBuilder();
                     var psi = new ProcessStartInfo
                     {
@@ -694,7 +712,7 @@ public sealed class TranscodeManager : IDisposable
                         UseShellExecute = false,
                         CreateNoWindow = true
                     };
-                    foreach (var arg in BuildFfmpegArgs(job, url, tempPath))
+                    foreach (var arg in BuildFfmpegArgs(url, tempPath, video?.Path, withSubtitles ? subtitles : new List<MediaStream>()))
                     {
                         psi.ArgumentList.Add(arg);
                     }
@@ -891,48 +909,69 @@ public sealed class TranscodeManager : IDisposable
         }
     }
 
-    private List<string> BuildFfmpegArgs(TranscodeJob job, string url, string outputPath)
+    /// <summary>
+    /// Picks the source's subtitle tracks for the download, honouring the subtitle settings. An MP4
+    /// can only carry text subtitles (mov_text), so image subtitles such as PGS/VOBSUB are skipped,
+    /// as is every codec on the admin's skip list and a sidecar whose file is missing.
+    /// </summary>
+    private static List<MediaStream> SelectSubtitles(Video? video)
+    {
+        var picked = new List<MediaStream>();
+        if (video is null || !Config.IncludeSubtitles)
+        {
+            return picked;
+        }
+
+        var skipped = SkippedSubtitleCodecs();
+        try
+        {
+            foreach (var s in video.GetMediaStreams())
+            {
+                if (s.Type != MediaStreamType.Subtitle || !s.IsTextSubtitleStream)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(s.Codec) && skipped.Contains(s.Codec))
+                {
+                    continue;
+                }
+
+                // Embedded tracks are read from the original file, external ones from their sidecar;
+                // a track whose file is not reachable from here cannot be mapped.
+                var source = s.IsExternal ? s.Path : video.Path;
+                if (string.IsNullOrEmpty(source) || !File.Exists(source))
+                {
+                    continue;
+                }
+
+                picked.Add(s);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            picked.Clear();
+        }
+
+        return picked;
+    }
+
+    private static HashSet<string> SkippedSubtitleCodecs()
+    {
+        return Config.SkippedSubtitleCodecs
+            .Split(CodecListSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static List<string> BuildFfmpegArgs(string url, string outputPath, string? originalPath, List<MediaStream> subtitles)
     {
         var args = new List<string> { "-hide_banner", "-loglevel", "error", "-i", url };
 
-        // Collect the source's text subtitle tracks so they can be embedded as selectable (soft)
-        // tracks in the download. An MP4 can only carry text subtitles (mov_text), so image
-        // subtitles such as PGS/VOBSUB are skipped. Embedded text subs are read back from the
-        // original file, external ones from their sidecar files; each is added as its own input.
-        var embedded = new List<MediaStream>();
-        var external = new List<MediaStream>();
-        string? originalPath = null;
-        if (_libraryManager.GetItemById(job.ItemId) is Video video)
-        {
-            originalPath = video.Path;
-            try
-            {
-                foreach (var s in video.GetMediaStreams())
-                {
-                    if (s.Type != MediaStreamType.Subtitle || !s.IsTextSubtitleStream)
-                    {
-                        continue;
-                    }
-
-                    if (s.IsExternal)
-                    {
-                        if (!string.IsNullOrEmpty(s.Path) && File.Exists(s.Path))
-                        {
-                            external.Add(s);
-                        }
-                    }
-                    else
-                    {
-                        embedded.Add(s);
-                    }
-                }
-            }
-            catch (InvalidOperationException)
-            {
-                embedded.Clear();
-                external.Clear();
-            }
-        }
+        // The chosen subtitle tracks are embedded as selectable (soft) mov_text tracks in the
+        // download. Embedded text subs are read back from the original file, external ones from
+        // their sidecar files; each is added as its own input.
+        var embedded = subtitles.Where(s => !s.IsExternal).ToList();
+        var external = subtitles.Where(s => s.IsExternal).ToList();
 
         var hasOriginal = embedded.Count > 0 && !string.IsNullOrEmpty(originalPath) && File.Exists(originalPath);
         if (hasOriginal)
@@ -1156,6 +1195,7 @@ public sealed class TranscodeManager : IDisposable
             Config.VideoCodec,
             Config.AudioBitrate.ToString(CultureInfo.InvariantCulture),
             Config.MaxAudioChannels.ToString(CultureInfo.InvariantCulture),
+            Config.IncludeSubtitles ? string.Join(",", SkippedSubtitleCodecs().Select(c => c.ToUpperInvariant()).OrderBy(c => c, StringComparer.Ordinal)) : "nosubs",
             length.ToString(CultureInfo.InvariantCulture),
             modifiedTicks.ToString(CultureInfo.InvariantCulture));
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(raw));

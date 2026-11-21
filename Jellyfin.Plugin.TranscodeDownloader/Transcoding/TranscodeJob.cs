@@ -55,6 +55,9 @@ public class TranscodeJob
     /// <summary>Gets or sets the error message, if any.</summary>
     public string? Error { get; set; }
 
+    /// <summary>Gets or sets a note about a finished download that is not quite what was asked for (e.g. subtitles left out), if any.</summary>
+    public string? Warning { get; set; }
+
     /// <summary>Gets or sets the output file path.</summary>
     public string OutputPath { get; set; } = string.Empty;
 

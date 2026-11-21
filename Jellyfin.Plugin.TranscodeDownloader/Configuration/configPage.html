@@ -58,6 +58,24 @@
                     </div>
 
                     <hr class="td-div">
+                    <h3 class="td-h">Subtitles</h3>
+                    <p class="td-sub">Which subtitle tracks go into the download as selectable soft tracks.</p>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="IncludeSubtitles" name="IncludeSubtitles" type="checkbox" is="emby-checkbox" />
+                            <span>Include subtitle tracks</span>
+                        </label>
+                        <div class="fieldDescription">Text subtitles from the source (embedded and sidecar <code>.srt</code>) are muxed into the MP4. If ffmpeg cannot fit a source's subtitle tracks into the MP4, the download is retried without them and says so.</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="SkippedSubtitleCodecs">Skip these subtitle codecs</label>
+                        <input id="SkippedSubtitleCodecs" name="SkippedSubtitleCodecs" type="text" is="emby-input" placeholder="DVBTXT, DVBSUB" />
+                        <div class="fieldDescription">Comma-separated codec names as Jellyfin shows them in an item's media info (e.g. <code>DVBTXT</code> for DVB teletext). Tracks with these codecs are left out from the start, so a format that cannot go into an MP4 no longer costs a retry. Leave empty to skip nothing.</div>
+                    </div>
+
+                    <hr class="td-div">
                     <h3 class="td-h">Performance &amp; cleanup</h3>
                     <p class="td-sub">How many transcodes run at once and how long finished files are kept.</p>
 
@@ -310,6 +328,8 @@
                     document.querySelector('#VideoCodec').value = config.VideoCodec;
                     document.querySelector('#AudioBitrate').value = config.AudioBitrate;
                     document.querySelector('#MaxAudioChannels').value = config.MaxAudioChannels;
+                    document.querySelector('#IncludeSubtitles').checked = config.IncludeSubtitles !== false;
+                    document.querySelector('#SkippedSubtitleCodecs').value = config.SkippedSubtitleCodecs || '';
                     document.querySelector('#ShowOriginal').checked = config.ShowOriginal;
                     document.querySelector('#MaxConcurrent').value = config.MaxConcurrent;
                     document.querySelector('#AutoCancelAbandoned').checked = config.AutoCancelAbandoned;
@@ -332,6 +352,8 @@
                     config.VideoCodec = document.querySelector('#VideoCodec').value;
                     config.AudioBitrate = parseInt(document.querySelector('#AudioBitrate').value, 10);
                     config.MaxAudioChannels = parseInt(document.querySelector('#MaxAudioChannels').value, 10);
+                    config.IncludeSubtitles = document.querySelector('#IncludeSubtitles').checked;
+                    config.SkippedSubtitleCodecs = (document.querySelector('#SkippedSubtitleCodecs').value || '').trim();
                     config.ShowOriginal = document.querySelector('#ShowOriginal').checked;
                     config.MaxConcurrent = parseInt(document.querySelector('#MaxConcurrent').value, 10);
                     config.AutoCancelAbandoned = document.querySelector('#AutoCancelAbandoned').checked;

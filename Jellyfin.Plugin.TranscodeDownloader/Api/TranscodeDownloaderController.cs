@@ -114,7 +114,8 @@ public class TranscodeDownloaderController : ControllerBase
             progress = Math.Round(job.Progress, 1),
             filename = job.FileName,
             size = job.Size,
-            error = job.Error
+            error = job.Error,
+            warning = job.Warning
         });
     }
 
